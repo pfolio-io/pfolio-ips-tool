@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pfolio IPS — phase 3 form harness</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 880px; margin: 32px auto; padding: 0 24px 96px; color: #1A2233; line-height: 1.55; background: #E7E7E7; }
+    h1 { font-family: Cambria, Georgia, serif; font-size: 28px; font-weight: 700; margin: 0 0 8px; }
+    .lede { color: #3A4255; font-size: 15px; margin: 0 0 24px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 24px; padding: 12px; background: #FFF; border: 1px solid #E6E2DA; border-radius: 8px; }
+    .toolbar button { padding: 7px 12px; background: #FFF; color: #1A2233; border: 1px solid #E6E2DA; border-radius: 6px; font-family: inherit; font-size: 13px; cursor: pointer; }
+    .toolbar button:hover { border-color: #1F8B8B; color: #1F8B8B; }
+    h2 { font-family: Cambria, Georgia, serif; font-size: 18px; font-weight: 700; margin: 32px 0 12px; }
+    #ips-form { background: #FFF; border: 1px solid #E6E2DA; border-radius: 12px; padding: 28px 32px; }
+    #download-buttons { display: flex; gap: 12px; flex-wrap: wrap; margin: 24px 0; }
+    .dl-btn { padding: 10px 18px; background: #1A2233; color: #fff; border: none; border-radius: 6px; font-family: inherit; font-size: 14px; cursor: pointer; }
+    .dl-btn:hover { background: #2A3343; }
+    .dl-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    pre.preview { background: #FFF; border: 1px solid #E6E2DA; border-radius: 8px; padding: 12px; font-size: 11px; overflow: auto; max-height: 320px; line-height: 1.4; }
+    .log { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #6B7280; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <h1>IPS phase 3 — form harness</h1>
+  <p class="lede">Mounts the phase 3 form into <code>#ips-form</code>, persists draft state to <code>pfolio_ips_draft_v1</code>, and wires the three download buttons to the live state.</p>
+
+  <div class="toolbar">
+    <button onclick="loadAnna()">Load Anna Bauer data</button>
+    <button onclick="resetForm()">Reset to defaults</button>
+    <button onclick="dumpState()">Dump state to console</button>
+    <button onclick="showStatePanel()">Show state panel ↓</button>
+  </div>
+
+  <h2>Form</h2>
+  <div id="mkt-touchpoint-1" class="ips-mkt-touchpoint" style="display:none; margin: 0 0 16px;"></div>
+  <div id="ips-form"></div>
+
+  <h2>Downloads</h2>
+  <div id="download-buttons">
+    <button class="dl-btn" data-dl-kind="word">Download as Word</button>
+    <button class="dl-btn" data-dl-kind="pdf">Download as PDF</button>
+    <button class="dl-btn" data-dl-kind="policy-card">Download policy card (PDF)</button>
+  </div>
+  <p class="log" id="event-log">No downloads triggered yet.</p>
+
+  <h2>Live state (refreshes on change)</h2>
+  <pre class="preview" id="state-panel"></pre>
+
+  <!-- Source files in dependency order -->
+  <script src="../src/utils.js"></script>
+  <script src="../src/anna-bauer.js"></script>
+  <script src="../src/word-ips.js"></script>
+  <script src="../src/pdf-ips.js"></script>
+  <script src="../src/pdf-policy-card.js"></script>
+  <script src="../src/form-state.js"></script>
+  <script src="../src/form-fields.js"></script>
+  <script src="../src/form-helpers.js"></script>
+  <script src="../src/form-spec.js"></script>
+  <script src="../src/form.js"></script>
+  <script src="../src/form-styles.js"></script>
+  <script src="../src/questionnaire-lookup.js"></script>
+  <script src="../src/questionnaire-calc.js"></script>
+  <script src="../src/form-questionnaire.js"></script>
+  <script src="../src/index.js"></script>
+
+  <script>
+    // Mount form + wire downloads against live state
+    const store = pfolioIPS.autoMount();
+
+    // Live state panel
+    const panel = document.getElementById('state-panel');
+    function refreshPanel() { panel.textContent = JSON.stringify(store.get(), null, 2); }
+    refreshPanel();
+    store.subscribe(refreshPanel);
+
+    document.addEventListener('download:complete', (e) => {
+      const ts = new Date().toLocaleTimeString('en-GB');
+      document.getElementById('event-log').textContent =
+        `[${ts}] download:complete fired — kind: ${e.detail.kind}`;
+    });
+
+    function loadAnna() {
+      // Replace state with Anna's hardcoded values, preserving advanced_open / helpers_open.
+      const cur = store.get();
+      const anna = JSON.parse(JSON.stringify(pfolioIPS.anna));
+      // Keep UI state from current draft so toggles don't snap shut
+      anna.advanced_open = cur.advanced_open;
+      anna.helpers_open = cur.helpers_open;
+      // Force every key onto the store
+      Object.keys(anna).forEach((k) => store.set(k, anna[k]));
+    }
+
+    function resetForm() {
+      if (window.confirm('Reset form to defaults?')) store.reset();
+    }
+
+    function dumpState() {
+      console.log('[pfolio IPS state]', store.get());
+    }
+
+    function showStatePanel() {
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  </script>
+</body>
+</html>
