@@ -171,15 +171,15 @@
     wrapper.style.width = '170mm';
     wrapper.innerHTML = `
       <style>
-        .card-doc { font-family: Calibri, Arial, sans-serif; color: #1A2233; line-height: 1.45; font-size: 9.5pt; }
+        .card-doc { font-family: Poppins, Calibri, Arial, sans-serif; color: #1A2233; line-height: 1.45; font-size: 9.5pt; }
         .card-doc .card-header { margin-bottom: 14pt; }
-        .card-doc .card-title { font-family: Cambria, Georgia, serif; font-size: 16pt; font-weight: 700; margin: 0 0 4pt; line-height: 1.2; }
+        .card-doc .card-title { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 16pt; font-weight: 700; margin: 0 0 4pt; line-height: 1.2; }
         .card-doc .card-meta { font-size: 9pt; color: #3A4255; margin: 0; }
         .card-doc .card-block { margin: 0 0 9pt; }
-        .card-doc .card-block h2 { font-family: Cambria, Georgia, serif; font-size: 10.5pt; font-weight: 700; margin: 0 0 3pt; color: #1A2233; }
+        .card-doc .card-block h2 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 10.5pt; font-weight: 700; margin: 0 0 3pt; color: #1A2233; }
         .card-doc .card-block p { margin: 0 0 2pt; }
         .card-doc .card-rule { margin: 16pt 0 10pt; }
-        .card-doc .card-rule h2 { font-family: Cambria, Georgia, serif; font-size: 11.5pt; font-weight: 700; margin: 0 0 4pt; }
+        .card-doc .card-rule h2 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 11.5pt; font-weight: 700; margin: 0 0 4pt; }
         .card-doc .card-rule p { margin: 0; line-height: 1.5; }
         .card-doc .card-footer { margin-top: 14pt; font-size: 8pt; color: #6B7280; line-height: 1.4; }
         .card-doc .card-footer p { margin: 0; }

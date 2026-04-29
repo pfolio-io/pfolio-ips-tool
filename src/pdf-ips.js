@@ -248,11 +248,11 @@
     wrapper.style.width = '170mm'; // A4 width minus margins
     wrapper.innerHTML = `
       <style>
-        .ips-pdf-doc { font-family: Calibri, Arial, sans-serif; color: #1A2233; line-height: 1.6; font-size: 11pt; }
-        .ips-pdf-doc h1 { font-family: Cambria, Georgia, serif; font-size: 22pt; font-weight: 700; margin: 0 0 6pt; line-height: 1.2; }
+        .ips-pdf-doc { font-family: Poppins, Calibri, Arial, sans-serif; color: #1A2233; line-height: 1.6; font-size: 11pt; }
+        .ips-pdf-doc h1 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 22pt; font-weight: 700; margin: 0 0 6pt; line-height: 1.2; }
         .ips-pdf-doc .subtitle { font-size: 13pt; color: #3A4255; margin: 0 0 18pt; }
-        .ips-pdf-doc h2 { font-family: Cambria, Georgia, serif; font-size: 15pt; font-weight: 700; margin: 18pt 0 8pt; padding-top: 8pt; border-top: 1px solid #E6E2DA; line-height: 1.25; }
-        .ips-pdf-doc h3 { font-family: Cambria, Georgia, serif; font-size: 12pt; font-weight: 700; margin: 12pt 0 6pt; }
+        .ips-pdf-doc h2 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 15pt; font-weight: 700; margin: 18pt 0 8pt; padding-top: 8pt; border-top: 1px solid #E6E2DA; line-height: 1.25; }
+        .ips-pdf-doc h3 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 12pt; font-weight: 700; margin: 12pt 0 6pt; }
         .ips-pdf-doc p { margin: 0 0 8pt; }
         .ips-pdf-doc .field { margin: 0 0 4pt; }
         .ips-pdf-doc ul { margin: 0 0 8pt 16pt; padding: 0; }
