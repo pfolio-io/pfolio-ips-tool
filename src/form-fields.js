@@ -38,9 +38,25 @@
     return node;
   }
 
+  // Group-input field types host multiple actual <input>s with suffixed IDs.
+  // Their wrapper label is a group label, so no `for` association.
+  const GROUP_TYPES = new Set([
+    'single_select', 'single_select_richlabel',
+    'multi_select', 'multi_select_with_other', 'multi_select_editable',
+    'yes_no', 'yes_no_with_text',
+    'two_numbers', 'money_with_period'
+  ]);
+
   function fieldWrapper(def, inputNode, opts = {}) {
+    const isGroup = GROUP_TYPES.has(def.type);
+    // For group inputs, use a div (not a label) so the browser doesn't warn
+    // about an unassociated <label>. Each individual input inside the group
+    // already has its own <label> for accessibility.
+    const labelTag = isGroup ? 'div' : 'label';
+    const labelAttrs = { class: 'ips-field__label' };
+    if (!isGroup) labelAttrs.for = 'f_' + def.id;
     return el('div', { class: 'ips-field', 'data-field': def.id }, [
-      def.label ? el('label', { class: 'ips-field__label', for: 'f_' + def.id }, def.label) : null,
+      def.label ? el(labelTag, labelAttrs, def.label) : null,
       inputNode,
       def.guidance && opts.showGuidance ? el('p', { class: 'ips-field__guidance' }, def.guidance) : null
     ]);
@@ -157,6 +173,8 @@
     });
 
     const periodSelect = el('select', {
+      id: 'f_' + def.id + '_period',
+      name: def.id + '_period',
       class: 'ips-select',
       onChange: (e) => store.setNested(def.id, 'period', e.target.value || null)
     }, [
@@ -333,6 +351,8 @@
       const row = el('div', { class: 'ips-editable-row' }, [
         el('input', {
           type: 'text',
+          id: 'f_' + def.id + '_' + idx,
+          name: def.id + '_' + idx,
           class: 'ips-input',
           value: item,
           onInput: (e) => {
@@ -410,9 +430,12 @@
 
     const children = [radios];
     if (v.enabled) {
+      const textareaId = 'f_' + def.id + '_text';
       children.push(el('div', { class: 'ips-yes-text' }, [
-        def.text_label_if_yes ? el('label', { class: 'ips-field__sublabel' }, def.text_label_if_yes) : null,
+        def.text_label_if_yes ? el('label', { class: 'ips-field__sublabel', for: textareaId }, def.text_label_if_yes) : null,
         el('textarea', {
+          id: textareaId,
+          name: def.id + '_text',
           class: 'ips-textarea',
           rows: 2,
           placeholder: def.text_placeholder || '',

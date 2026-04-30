@@ -18,13 +18,14 @@
 
     const HEADING_FONT = 'Cambria';
     const BODY_FONT = 'Calibri';
+    const TEXT_COLOR = '1F2F36'; // Deep Slate — pfolio body color
 
     // ---------- Helpers ----------
 
     function p(text, opts = {}) {
       const runs = Array.isArray(text)
-        ? text.map((t) => (typeof t === 'string' ? new TextRun({ text: t, font: BODY_FONT, size: opts.size || 22 }) : t))
-        : [new TextRun({ text: text || '', font: BODY_FONT, size: opts.size || 22, italics: !!opts.italics, bold: !!opts.bold })];
+        ? text.map((t) => (typeof t === 'string' ? new TextRun({ text: t, font: BODY_FONT, size: opts.size || 22, color: TEXT_COLOR }) : t))
+        : [new TextRun({ text: text || '', font: BODY_FONT, size: opts.size || 22, italics: !!opts.italics, bold: !!opts.bold, color: TEXT_COLOR })];
       return new Paragraph({
         children: runs,
         spacing: { after: opts.after ?? 160, before: opts.before ?? 0 },
@@ -41,7 +42,8 @@
             text,
             font: HEADING_FONT,
             size: sizeMap[level] || 22,
-            bold: true
+            bold: true,
+            color: TEXT_COLOR
           })
         ],
         spacing: {
@@ -59,8 +61,8 @@
       // "Label: value" — bold label, regular value.
       return new Paragraph({
         children: [
-          new TextRun({ text: `${label}: `, font: BODY_FONT, size: 22, bold: true }),
-          new TextRun({ text: value, font: BODY_FONT, size: 22 })
+          new TextRun({ text: `${label}: `, font: BODY_FONT, size: 22, bold: true, color: TEXT_COLOR }),
+          new TextRun({ text: value, font: BODY_FONT, size: 22, color: TEXT_COLOR })
         ],
         spacing: { after: 120 }
       });
@@ -68,7 +70,7 @@
 
     function bulletLine(text) {
       return new Paragraph({
-        children: [new TextRun({ text, font: BODY_FONT, size: 22 })],
+        children: [new TextRun({ text, font: BODY_FONT, size: 22, color: TEXT_COLOR })],
         bullet: { level: 0 },
         spacing: { after: 80 }
       });

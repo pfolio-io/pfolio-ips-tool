@@ -198,7 +198,7 @@
           children.push(el('div', { class: 'ips-helper__cta' }, [
             el('button', {
               type: 'button',
-              class: 'ips-btn ips-btn--apply',
+              class: 'ips-btn ips-btn--outline',
               onClick: () => {
                 const cur = store.get().calibrator || {};
                 store.set('calibrator', { ...cur, open: true, step: 0, result: null });

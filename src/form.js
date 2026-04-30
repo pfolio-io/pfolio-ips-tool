@@ -97,8 +97,10 @@
         advancedToggleBtn('detail', isOpen, () => store.toggleAdvancedOpen(subKey))
       ];
       if (isOpen) {
-        if (sub.intro) children.push(sectionIntro(sub.intro));
-        children.push(...renderFieldsGroup(sub.fields || [], state, store, ctx));
+        const inner = [];
+        if (sub.intro) inner.push(sectionIntro(sub.intro));
+        inner.push(...renderFieldsGroup(sub.fields || [], state, store, ctx));
+        children.push(el('div', { class: 'ips-advanced-detail' }, inner));
       }
       return el('section', { class: 'ips-sub ips-sub--advanced' }, children);
     }
@@ -120,7 +122,7 @@
     if (optionalAdvanced.length) {
       children.push(advancedToggleBtn('detail', isOpen, () => store.toggleAdvancedOpen(subKey)));
       if (isOpen) {
-        children.push(...renderFieldsGroup(optionalAdvanced, state, store, ctx));
+        children.push(el('div', { class: 'ips-advanced-detail' }, renderFieldsGroup(optionalAdvanced, state, store, ctx)));
       }
     }
 
@@ -144,7 +146,7 @@
     if (advancedFields.length) {
       children.push(advancedToggleBtn('optional details', isOpen, () => store.toggleAdvancedOpen(subKey)));
       if (isOpen) {
-        children.push(...renderFieldsGroup(advancedFields, state, store, ctx));
+        children.push(el('div', { class: 'ips-advanced-detail' }, renderFieldsGroup(advancedFields, state, store, ctx)));
       }
     }
 
@@ -165,7 +167,7 @@
     if (advancedFields.length) {
       children.push(advancedToggleBtn('detail', isOpen, () => store.toggleAdvancedOpen(subKey)));
       if (isOpen) {
-        children.push(...renderFieldsGroup(advancedFields, state, store, ctx));
+        children.push(el('div', { class: 'ips-advanced-detail' }, renderFieldsGroup(advancedFields, state, store, ctx)));
       }
     }
     return el('section', { class: 'ips-section' }, children);

@@ -32,17 +32,17 @@
   ];
 
   const OBJECTIVE = [
-    { value: 'capital_preservation', label: 'Capital preservation — prioritising safety of principal over returns', score: 0 },
-    { value: 'income_generation',    label: 'Income generation — seeking regular income from investments',          score: 2 },
-    { value: 'capital_growth',       label: 'Capital growth — aiming to increase the value of your investments',     score: 3 },
-    { value: 'speculation',          label: 'Speculation or aggressive growth — taking higher risk for potentially higher returns', score: 4 }
+    { value: 'capital_preservation', label: 'Capital preservation—prioritising safety of principal over returns', score: 0 },
+    { value: 'income_generation',    label: 'Income generation—seeking regular income from investments',          score: 2 },
+    { value: 'capital_growth',       label: 'Capital growth—aiming to increase the value of your investments',     score: 3 },
+    { value: 'speculation',          label: 'Speculation or aggressive growth—taking higher risk for potentially higher returns', score: 4 }
   ];
 
   const KNOWLEDGE = [
-    { value: 'novice',       label: 'Novice — no prior knowledge',     score: 1 },
-    { value: 'beginner',     label: 'Beginner — basic understanding',  score: 2 },
-    { value: 'intermediate', label: 'Intermediate — moderate understanding', score: 3 },
-    { value: 'expert',       label: 'Expert — advanced knowledge',     score: 4 }
+    { value: 'novice',       label: 'Novice—no prior knowledge',     score: 1 },
+    { value: 'beginner',     label: 'Beginner—basic understanding',  score: 2 },
+    { value: 'intermediate', label: 'Intermediate—moderate understanding', score: 3 },
+    { value: 'expert',       label: 'Expert—advanced knowledge',     score: 4 }
   ];
 
   // The exact list of products. count of selections drives the experience score.
@@ -58,11 +58,11 @@
   ];
 
   const RISK_LEVEL = [
-    { value: 'very_low', label: 'Very low — I want to avoid losses, even if returns are small', score: 0 },
-    { value: 'low',      label: 'Low — I prefer safety but can accept minor fluctuations',       score: 1 },
-    { value: 'moderate', label: 'Moderate — I am comfortable with some ups and downs for better returns', score: 2 },
-    { value: 'high',     label: 'High — I can accept significant fluctuations for higher growth potential', score: 3 },
-    { value: 'very_high', label: 'Very high — I seek maximum growth and accept large risks of loss', score: 4 }
+    { value: 'very_low', label: 'Very low—I want to avoid losses, even if returns are small', score: 0 },
+    { value: 'low',      label: 'Low—I prefer safety but can accept minor fluctuations',       score: 1 },
+    { value: 'moderate', label: 'Moderate—I am comfortable with some ups and downs for better returns', score: 2 },
+    { value: 'high',     label: 'High—I can accept significant fluctuations for higher growth potential', score: 3 },
+    { value: 'very_high', label: 'Very high—I seek maximum growth and accept large risks of loss', score: 4 }
   ];
 
   const VOLATILITY = [

@@ -184,7 +184,7 @@
         E('button', { type: 'button', class: 'ips-btn ips-btn--ghost', onClick: back }, idx === 0 ? '← Back to framework' : '← Back'),
         E('button', {
           type: 'button',
-          class: 'ips-btn ips-btn--apply',
+          class: 'ips-btn ips-btn--outline',
           disabled: !isAnswered() ? 'disabled' : false,
           onClick: () => { if (isAnswered()) next(); }
         }, idx === steps.length - 1 ? 'See result →' : 'Next →')
@@ -217,7 +217,9 @@
     const mktCard = result.level === 0
       ? null
       : E('a', {
-          href: '/portfolios',
+          href: 'https://www.pfolio.io/help/our-portfolios',
+          target: '_blank',
+          rel: 'noopener noreferrer',
           class: 'ips-mkt-card'
         }, [
           E('span', { class: 'ips-mkt-card__text', html: `Your risk profile maps to pfolio's <strong>${result.title}</strong> portfolios.` }),

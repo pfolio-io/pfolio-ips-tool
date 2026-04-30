@@ -46,7 +46,8 @@
           else if (kind === 'policy-card') await api.generatePolicyCardPDF(data);
         } catch (err) {
           console.error('[pfolioIPS] generation failed', err);
-          alert('Sorry — something went wrong generating that file. Check the console for details.');
+          const detail = err && err.message ? err.message : String(err);
+          alert(`Sorry—generation failed.\n\n${detail}\n\nFull error in the browser console.`);
         } finally {
           btn.textContent = oldText;
           delete btn.dataset.busy;
@@ -61,6 +62,64 @@
     return store;
   }
 
+  // Restructure the #download-buttons host so the policy card is the primary
+  // download (the user-facing commitment artefact) and the Word/PDF IPS exports
+  // are presented as backup/raw-data formats.
+  function restructureDownloads(rootEl) {
+    if (!rootEl) return;
+    // Pull the existing buttons by data-dl-kind so we preserve their event listeners later.
+    const cardBtn = rootEl.querySelector('[data-dl-kind="policy-card"]');
+    const wordBtn = rootEl.querySelector('[data-dl-kind="word"]');
+    const pdfBtn = rootEl.querySelector('[data-dl-kind="pdf"]');
+    if (!cardBtn) return; // already restructured or unexpected markup — leave alone
+
+    // Clear existing children and rebuild.
+    rootEl.textContent = '';
+
+    // Primary section
+    const primary = document.createElement('div');
+    primary.className = 'ips-dl-primary-section';
+
+    const heading = document.createElement('h3');
+    heading.className = 'ips-dl-heading';
+    heading.textContent = 'Your policy card';
+    primary.appendChild(heading);
+
+    const lede = document.createElement('p');
+    lede.className = 'ips-dl-lede';
+    lede.textContent = 'A one-page first-person summary—the document you check before acting on a market move. The full IPS lives below as a Word or PDF export.';
+    primary.appendChild(lede);
+
+    cardBtn.classList.add('ips-dl-primary');
+    cardBtn.textContent = 'Download policy card (PDF)';
+    primary.appendChild(cardBtn);
+
+    rootEl.appendChild(primary);
+
+    // Secondary section
+    const secondary = document.createElement('div');
+    secondary.className = 'ips-dl-secondary-section';
+
+    const secLabel = document.createElement('p');
+    secLabel.className = 'ips-dl-secondary-label';
+    secLabel.textContent = 'Full IPS—for your records';
+    secondary.appendChild(secLabel);
+
+    const secRow = document.createElement('div');
+    secRow.className = 'ips-dl-secondary-row';
+    if (wordBtn) {
+      wordBtn.classList.add('ips-dl-secondary');
+      secRow.appendChild(wordBtn);
+    }
+    if (pdfBtn) {
+      pdfBtn.classList.add('ips-dl-secondary');
+      secRow.appendChild(pdfBtn);
+    }
+    secondary.appendChild(secRow);
+
+    rootEl.appendChild(secondary);
+  }
+
   function autoMount() {
     const formEl = document.getElementById('ips-form');
     if (!formEl) {
@@ -73,14 +132,17 @@
     formEl.classList.add('ips-form-host');
 
     const store = mountForm(formEl);
-    wireDownloadButtons(() => store.get());
 
-    // Same cleanup for the download buttons placeholder.
+    // Restructure the download host BEFORE wiring listeners — wiring queries
+    // by data-dl-kind, which restructure preserves.
     const dlEl = document.getElementById('download-buttons');
     if (dlEl) {
       dlEl.classList.remove('ips-embed-placeholder');
       dlEl.classList.add('ips-downloads-host');
+      restructureDownloads(dlEl);
     }
+
+    wireDownloadButtons(() => store.get());
 
     // The risk questionnaire is now an inline calibrator inside section 3.1's helper.
     // The standalone #risk-questionnaire placeholder on the page is no longer used —

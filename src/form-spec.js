@@ -132,7 +132,7 @@
                   ]
                 }
               },
-              { id: 'target_value', label: 'Target portfolio value at horizon, if you have one', type: 'money', tier: 'advanced', placeholder: 'amount, or leave blank' },
+              { id: 'target_value', label: 'Target portfolio value at horizon, if you have one', type: 'money', tier: 'advanced' },
               { id: 'secondary_objectives', label: 'Secondary objectives', type: 'textarea', tier: 'advanced', rows: 2, placeholder: 'E.g. income generation in retirement, leaving a legacy, philanthropic giving.' }
             ]
           },
@@ -366,7 +366,7 @@
             number: '4.5',
             title: 'Concentration limits',
             tier: 'advanced',
-            intro: 'Position-size rules — risk controls within the universe.',
+            intro: 'Position-size rules—risk controls within the universe.',
             fields: [
               { id: 'max_single_position', label: 'Maximum single position weight', type: 'percentage', tier: 'advanced' },
               { id: 'max_asset_class', label: 'Maximum exposure to any single asset class', type: 'percentage', tier: 'advanced' },
@@ -429,7 +429,7 @@
                       options: [
                         { value: 'very', label: 'By my own judgement, in the moment' },
                         { value: 'somewhat', label: 'A mix of rules and judgement' },
-                        { value: 'not', label: 'By rules set in advance — whether I never touch them again or follow them on a fixed cadence' }
+                        { value: 'not', label: 'By rules set in advance—whether I never touch them again or follow them on a fixed cadence' }
                       ]
                     }
                   ]

@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-04-30T07:56:46Z */
+/* pfolio IPS bundle — built 2026-04-30T12:52:07Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -243,7 +243,8 @@
 
   const CDN = {
     docx: 'https://unpkg.com/docx@8.5.0/build/index.umd.js',
-    html2pdf: 'https://unpkg.com/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js',
+    html2pdf: 'https://unpkg.com/html2pdf.js@0.10.3/dist/html2pdf.bundle.min.js',
+    jspdf: 'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
     fileSaver: 'https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js'
   };
 
@@ -257,6 +258,56 @@
     if (typeof window.html2pdf !== 'undefined') return window.html2pdf;
     await loadScript(CDN.html2pdf);
     return window.html2pdf;
+  }
+
+  async function ensureJsPDF() {
+    if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+    if (typeof window.jsPDF !== 'undefined') return window.jsPDF;
+    await loadScript(CDN.jspdf);
+    if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+    if (typeof window.jsPDF !== 'undefined') return window.jsPDF;
+    throw new Error('jsPDF failed to load from CDN');
+  }
+
+  // ---------- pfolio branding ----------
+
+  const PFOLIO_LOGO_URL = 'https://cdn.prod.website-files.com/60681f344e5efd9d3d0c688e/606ac64809bea4f56f16ee6e_pfolio_logo.svg';
+  const PFOLIO_SITE_URL = 'https://pfolio.io';
+
+  // Rasterise the SVG logo to a PNG data URL and report its aspect ratio.
+  // Cached on first call so subsequent generations are instant.
+  let _logoPromise;
+  function loadPfolioLogo() {
+    if (_logoPromise) return _logoPromise;
+    _logoPromise = (async () => {
+      // Fetch the SVG as text so we can blob-render it (same-origin canvas).
+      const res = await fetch(PFOLIO_LOGO_URL, { mode: 'cors' });
+      if (!res.ok) throw new Error('logo fetch failed: ' + res.status);
+      const svgText = await res.text();
+      const blob = new Blob([svgText], { type: 'image/svg+xml' });
+      const blobUrl = URL.createObjectURL(blob);
+      try {
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error('logo image failed to decode'));
+          img.src = blobUrl;
+        });
+        // SVG without intrinsic dimensions falls back to a sensible default.
+        const w = img.naturalWidth || 480;
+        const h = img.naturalHeight || 160;
+        // Render at 4× for sharp print output.
+        const canvas = document.createElement('canvas');
+        canvas.width = w * 4;
+        canvas.height = h * 4;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        return { dataURL: canvas.toDataURL('image/png'), aspect: w / h };
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+    })();
+    return _logoPromise;
   }
 
   // ---------- Export ----------
@@ -275,6 +326,9 @@
     fireDownloadComplete,
     ensureDocx,
     ensureHtml2Pdf,
+    ensureJsPDF,
+    loadPfolioLogo,
+    PFOLIO_SITE_URL,
     HORIZON_LABELS,
     OBJECTIVE_LABELS,
     RISK_LEVEL_LABELS,
@@ -451,13 +505,14 @@
 
     const HEADING_FONT = 'Cambria';
     const BODY_FONT = 'Calibri';
+    const TEXT_COLOR = '1F2F36'; // Deep Slate — pfolio body color
 
     // ---------- Helpers ----------
 
     function p(text, opts = {}) {
       const runs = Array.isArray(text)
-        ? text.map((t) => (typeof t === 'string' ? new TextRun({ text: t, font: BODY_FONT, size: opts.size || 22 }) : t))
-        : [new TextRun({ text: text || '', font: BODY_FONT, size: opts.size || 22, italics: !!opts.italics, bold: !!opts.bold })];
+        ? text.map((t) => (typeof t === 'string' ? new TextRun({ text: t, font: BODY_FONT, size: opts.size || 22, color: TEXT_COLOR }) : t))
+        : [new TextRun({ text: text || '', font: BODY_FONT, size: opts.size || 22, italics: !!opts.italics, bold: !!opts.bold, color: TEXT_COLOR })];
       return new Paragraph({
         children: runs,
         spacing: { after: opts.after ?? 160, before: opts.before ?? 0 },
@@ -474,7 +529,8 @@
             text,
             font: HEADING_FONT,
             size: sizeMap[level] || 22,
-            bold: true
+            bold: true,
+            color: TEXT_COLOR
           })
         ],
         spacing: {
@@ -492,8 +548,8 @@
       // "Label: value" — bold label, regular value.
       return new Paragraph({
         children: [
-          new TextRun({ text: `${label}: `, font: BODY_FONT, size: 22, bold: true }),
-          new TextRun({ text: value, font: BODY_FONT, size: 22 })
+          new TextRun({ text: `${label}: `, font: BODY_FONT, size: 22, bold: true, color: TEXT_COLOR }),
+          new TextRun({ text: value, font: BODY_FONT, size: 22, color: TEXT_COLOR })
         ],
         spacing: { after: 120 }
       });
@@ -501,7 +557,7 @@
 
     function bulletLine(text) {
       return new Paragraph({
-        children: [new TextRun({ text, font: BODY_FONT, size: 22 })],
+        children: [new TextRun({ text, font: BODY_FONT, size: 22, color: TEXT_COLOR })],
         bullet: { level: 0 },
         spacing: { after: 80 }
       });
@@ -830,42 +886,146 @@
 /**
  * PDF IPS generator — generateFullIPSPDF(data).
  *
- * Builds the same content tree as the Word generator, expressed as HTML,
- * then renders to PDF via html2pdf.js (jsPDF + html2canvas under the hood).
- * A4, 25mm margins.
+ * Direct jsPDF text rendering. No html2canvas. A4, 25mm margins.
+ * Helvetica throughout (built-in jsPDF font, no embedding required).
  */
 (function () {
   'use strict';
 
   const ns = (window._pfolioIPS = window._pfolioIPS || {});
 
-  // Escape user-supplied strings so we never inject markup.
-  function esc(s) {
-    if (s === null || s === undefined) return '';
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  // Page geometry (mm)
+  const PAGE_W = 210;
+  const PAGE_H = 297;
+  const MARGIN = 25;
+  const CONTENT_W = PAGE_W - 2 * MARGIN;
+  const BOTTOM = PAGE_H - MARGIN;
 
-  function field(label, value) {
-    if (value === '' || value === null || value === undefined) return '';
-    return `<p class="field"><strong>${esc(label)}:</strong> ${esc(value)}</p>`;
-  }
+  // Point → mm conversion (1pt = 1/72 in, 1in = 25.4mm)
+  const PT = 25.4 / 72;
 
-  function para(text) {
-    if (!text) return '';
-    return `<p>${esc(text)}</p>`;
-  }
-
-  function buildIPSHTML(data) {
+  async function generateFullIPSPDF(data) {
     const u = ns.utils;
-    const currency = data.base_currency || 'USD';
+    const jsPDF = await u.ensureJsPDF();
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
-    function val(v) { return u.isEmpty(v) ? null : v; }
-    function moneyOrNull(v) { return u.isEmpty(v) ? null : u.formatMoney(v, currency); }
+    // Best-effort logo load — if it fails (network/CORS), proceed without it.
+    let logo = null;
+    try { logo = await u.loadPfolioLogo(); } catch (e) { console.warn('[pdf-ips] logo unavailable', e); }
+
+    let y = MARGIN;
+
+    // pfolio logo, top-right, clickable link to pfolio.io
+    if (logo) {
+      const logoW = 24;
+      const logoH = logoW / logo.aspect;
+      const logoX = PAGE_W - MARGIN - logoW;
+      const logoY = MARGIN;
+      doc.addImage(logo.dataURL, 'PNG', logoX, logoY, logoW, logoH);
+      doc.link(logoX, logoY, logoW, logoH, { url: u.PFOLIO_SITE_URL });
+      // Push content down so the title clears the logo on first page.
+      if (logoH > 0) y = MARGIN + logoH + 4;
+    }
+
+    function setFont(style) { doc.setFont('helvetica', style); }
+    function setSize(pt) { doc.setFontSize(pt); }
+    function setColor(r, g, b) { doc.setTextColor(r, g, b); }
+    function lineH(pt, factor) { return pt * PT * (factor || 1.4); }
+    function space(pt) { y += pt * PT; }
+
+    function ensureSpace(needed) {
+      if (y + needed > BOTTOM) { doc.addPage(); y = MARGIN; }
+    }
+
+    function writeText(text, opts) {
+      opts = opts || {};
+      const fontSize = opts.fontSize || 11;
+      const fontStyle = opts.fontStyle || 'normal';
+      const color = opts.color || [31, 47, 54]; // Deep Slate #1F2F36
+      const lineFactor = opts.lineFactor || 1.4;
+      const indent = opts.indent || 0;
+      const prefix = opts.prefix || '';
+
+      setFont(fontStyle);
+      setSize(fontSize);
+      setColor(color[0], color[1], color[2]);
+
+      const fullText = prefix + String(text);
+      const maxW = CONTENT_W - indent;
+      const lines = doc.splitTextToSize(fullText, maxW);
+      const lh = lineH(fontSize, lineFactor);
+
+      for (let i = 0; i < lines.length; i++) {
+        ensureSpace(lh);
+        doc.text(lines[i], MARGIN + indent, y, { baseline: 'top' });
+        y += lh;
+      }
+    }
+
+    function H1(text) { writeText(text, { fontSize: 22, fontStyle: 'bold', lineFactor: 1.2 }); space(6); }
+    function SUB(text) { writeText(text, { fontSize: 13, fontStyle: 'italic', color: [68, 68, 68] }); space(18); }
+
+    function H2(text) {
+      space(18);
+      ensureSpace(lineH(15) + 4);
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.2);
+      doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+      space(8);
+      writeText(text, { fontSize: 15, fontStyle: 'bold', lineFactor: 1.25 });
+      space(8);
+    }
+
+    function H3(text) { space(12); writeText(text, { fontSize: 12, fontStyle: 'bold' }); space(6); }
+    function P(text) { writeText(text, { fontSize: 11, lineFactor: 1.6 }); space(8); }
+
+    function FIELD(label, value) {
+      if (value === '' || value === null || value === undefined) return;
+      setSize(11);
+      setColor(31, 47, 54); // Deep Slate
+      setFont('bold');
+      const labelText = label + ': ';
+      const labelW = doc.getTextWidth(labelText);
+      setFont('normal');
+      const valueLines = doc.splitTextToSize(String(value), CONTENT_W - labelW);
+      const lh = lineH(11);
+
+      ensureSpace(lh);
+      setFont('bold');
+      doc.text(labelText, MARGIN, y, { baseline: 'top' });
+      setFont('normal');
+      doc.text(valueLines[0], MARGIN + labelW, y, { baseline: 'top' });
+      y += lh;
+
+      for (let i = 1; i < valueLines.length; i++) {
+        ensureSpace(lh);
+        doc.text(valueLines[i], MARGIN, y, { baseline: 'top' });
+        y += lh;
+      }
+      space(4);
+    }
+
+    function BULLET(text) { writeText(text, { fontSize: 11, prefix: '• ', indent: 5 }); space(4); }
+
+    function FOOT(text) {
+      space(24);
+      writeText(text, { fontSize: 9, fontStyle: 'italic', color: [102, 102, 102], lineFactor: 1.5 });
+    }
+
+    function SIG_RULE() {
+      space(24);
+      ensureSpace(8);
+      doc.setDrawColor(150, 150, 150);
+      doc.setLineWidth(0.2);
+      doc.line(MARGIN, y, MARGIN + CONTENT_W, y);
+      space(12);
+    }
+
+    // ---- Build content ----
+
+    const currency = data.base_currency || 'USD';
+    const val = (v) => u.isEmpty(v) ? null : v;
+    const moneyOrNull = (v) => u.isEmpty(v) ? null : u.formatMoney(v, currency);
 
     const horizon = u.labelFor(u.HORIZON_LABELS, data.horizon);
     const objective = u.labelFor(u.OBJECTIVE_LABELS, data.objective);
@@ -878,285 +1038,225 @@
     const style = u.labelFor(u.STYLE_LABELS, data.management_style);
     const cadence = u.labelFor(u.CADENCE_LABELS, data.cadence);
 
-    const parts = [];
-
     // Title and preamble
-    parts.push('<h1>Investment policy statement</h1>');
-    parts.push('<p class="subtitle"><em>A personal contract with your future self.</em></p>');
-    parts.push(para('This document sets out how you intend to invest, why, and under what rules. It exists for one reason: so that the version of you reading it during a market crash defers to the version of you who wrote it. Markets will give you reasons to deviate. This document is what you check before you do.'));
-    parts.push(para('It is a framework, not a portfolio. The policies you commit to here define the boundaries within which any portfolio you hold should operate. Different portfolios can satisfy the same framework; the framework outlives any particular one.'));
+    H1('Investment policy statement');
+    SUB('A personal contract with your future self.');
+    P('This document sets out how you intend to invest, why, and under what rules. It exists for one reason: so that the version of you reading it during a market crash defers to the version of you who wrote it. Markets will give you reasons to deviate. This document is what you check before you do.');
+    P('It is a framework, not a portfolio. The policies you commit to here define the boundaries within which any portfolio you hold should operate. Different portfolios can satisfy the same framework; the framework outlives any particular one.');
 
-    // Section 1
-    {
-      const block = [];
-      if (val(data.drafted_by)) block.push(field('Drafted by', data.drafted_by));
-      if (val(data.date_drafted)) block.push(field('Date drafted', u.formatDate(data.date_drafted)));
-      if (val(data.base_currency)) block.push(field('Base currency', data.base_currency));
-      if (val(data.co_investor)) block.push(field('Co-investor or household member', data.co_investor));
-      if (block.length) {
-        parts.push('<h2>1. Cover and metadata</h2>');
-        parts.push(...block);
-      }
+    // Section 1 — Cover and metadata
+    if (val(data.drafted_by) || val(data.date_drafted) || val(data.base_currency) || val(data.co_investor)) {
+      H2('1. Cover and metadata');
+      if (val(data.drafted_by)) FIELD('Drafted by', data.drafted_by);
+      if (val(data.date_drafted)) FIELD('Date drafted', u.formatDate(data.date_drafted));
+      if (val(data.base_currency)) FIELD('Base currency', data.base_currency);
+      if (val(data.co_investor)) FIELD('Co-investor or household member', data.co_investor);
     }
 
-    // Section 2
+    // Section 2 — Investment objectives
     {
-      const sub21 = horizon ? [para(horizon)] : [];
-      const sub22 = [];
-      if (objective) sub22.push(para(objective));
-      if (moneyOrNull(data.target_value)) sub22.push(field('Target portfolio value at horizon', u.formatMoney(data.target_value, currency)));
-      if (val(data.secondary_objectives)) sub22.push(field('Secondary objectives', data.secondary_objectives));
+      const has21 = !!horizon;
+      const has22 = objective || moneyOrNull(data.target_value) || val(data.secondary_objectives);
+      const has23 = val(data.intended_use);
+      const has24 = moneyOrNull(data.starting_capital)
+        || (data.ongoing_contributions && (data.ongoing_contributions.period === 'none' || data.ongoing_contributions.amount))
+        || onboarding || val(data.onboarding_specify) || val(data.withdrawal_approach);
 
-      const sub23 = val(data.intended_use) ? [para(data.intended_use)] : [];
-
-      const sub24 = [];
-      if (moneyOrNull(data.starting_capital)) sub24.push(field('Starting capital', u.formatMoney(data.starting_capital, currency)));
-      if (data.ongoing_contributions) {
-        const oc = data.ongoing_contributions;
-        if (oc.period === 'none') {
-          sub24.push(field('Planned ongoing contributions', 'None'));
-        } else if (oc.amount) {
-          const periodLabel = u.PERIOD_LABELS[oc.period] || '';
-          sub24.push(field('Planned ongoing contributions', `${u.formatMoney(oc.amount, currency)}${periodLabel ? ' ' + periodLabel : ''}`));
+      if (has21 || has22 || has23 || has24) {
+        H2('2. Investment objectives');
+        if (has21) { H3('2.1 Investment horizon'); P(horizon); }
+        if (has22) {
+          H3('2.2 Investment objective');
+          if (objective) P(objective);
+          if (moneyOrNull(data.target_value)) FIELD('Target portfolio value at horizon', u.formatMoney(data.target_value, currency));
+          if (val(data.secondary_objectives)) FIELD('Secondary objectives', data.secondary_objectives);
+        }
+        if (has23) { H3('2.3 Intended use'); P(data.intended_use); }
+        if (has24) {
+          H3('2.4 Funding the portfolio');
+          if (moneyOrNull(data.starting_capital)) FIELD('Starting capital', u.formatMoney(data.starting_capital, currency));
+          if (data.ongoing_contributions) {
+            const oc = data.ongoing_contributions;
+            if (oc.period === 'none') FIELD('Planned ongoing contributions', 'None');
+            else if (oc.amount) {
+              const periodLabel = u.PERIOD_LABELS[oc.period] || '';
+              FIELD('Planned ongoing contributions', u.formatMoney(oc.amount, currency) + (periodLabel ? ' ' + periodLabel : ''));
+            }
+          }
+          if (onboarding) FIELD('Onboarding approach', onboarding);
+          if (val(data.onboarding_specify)) P(data.onboarding_specify);
+          if (val(data.withdrawal_approach)) FIELD('Withdrawal approach', data.withdrawal_approach);
         }
       }
-      if (onboarding) sub24.push(field('Onboarding approach', onboarding));
-      if (val(data.onboarding_specify)) sub24.push(para(data.onboarding_specify));
-      if (val(data.withdrawal_approach)) sub24.push(field('Withdrawal approach', data.withdrawal_approach));
+    }
 
-      if (sub21.length || sub22.length || sub23.length || sub24.length) {
-        parts.push('<h2>2. Investment objectives</h2>');
-        if (sub21.length) { parts.push('<h3>2.1 Investment horizon</h3>'); parts.push(...sub21); }
-        if (sub22.length) { parts.push('<h3>2.2 Investment objective</h3>'); parts.push(...sub22); }
-        if (sub23.length) { parts.push('<h3>2.3 Intended use</h3>'); parts.push(...sub23); }
-        if (sub24.length) { parts.push('<h3>2.4 Funding the portfolio</h3>'); parts.push(...sub24); }
+    // Section 3 — Risk profile
+    {
+      const has31 = riskLevel || val(data.risk_level_note);
+      const has32 = targetVol || val(data.target_volatility_note);
+      const has33 = val(data.abandonment_amount) || val(data.abandonment_pct) || val(data.abandonment_note);
+
+      if (has31 || has32 || has33) {
+        H2('3. Risk profile');
+        if (has31) {
+          H3('3.1 Risk level');
+          if (riskLevel) P(riskLevel);
+          if (val(data.risk_level_note)) P(data.risk_level_note);
+        }
+        if (has32) {
+          H3('3.2 Target volatility');
+          if (targetVol) P(targetVol);
+          if (val(data.target_volatility_note)) P(data.target_volatility_note);
+        }
+        if (has33) {
+          H3('3.3 Abandonment threshold');
+          if (val(data.abandonment_amount)) FIELD('Loss in money', u.formatMoney(data.abandonment_amount, currency));
+          if (val(data.abandonment_pct)) FIELD('As a percentage of portfolio value', data.abandonment_pct + '%');
+          if (val(data.abandonment_note)) P(data.abandonment_note);
+        }
       }
     }
 
-    // Section 3
+    // Section 4 — Asset universe
     {
-      const sub31 = [];
-      if (riskLevel) sub31.push(para(riskLevel));
-      if (val(data.risk_level_note)) sub31.push(para(data.risk_level_note));
-
-      const sub32 = [];
-      if (targetVol) sub32.push(para(targetVol));
-      if (val(data.target_volatility_note)) sub32.push(para(data.target_volatility_note));
-
-      const sub33 = [];
-      if (val(data.abandonment_amount)) sub33.push(field('Loss in money', u.formatMoney(data.abandonment_amount, currency)));
-      if (val(data.abandonment_pct)) sub33.push(field('As a percentage of portfolio value', `${data.abandonment_pct}%`));
-      if (val(data.abandonment_note)) sub33.push(para(data.abandonment_note));
-
-      if (sub31.length || sub32.length || sub33.length) {
-        parts.push('<h2>3. Risk profile</h2>');
-        if (sub31.length) { parts.push('<h3>3.1 Risk level</h3>'); parts.push(...sub31); }
-        if (sub32.length) { parts.push('<h3>3.2 Target volatility</h3>'); parts.push(...sub32); }
-        if (sub33.length) { parts.push('<h3>3.3 Abandonment threshold</h3>'); parts.push(...sub33); }
-      }
-    }
-
-    // Section 4
-    {
-      const sub41 = [];
-      if (assetTypes) sub41.push(para(assetTypes));
-      if (val(data.asset_types_other)) sub41.push(para(data.asset_types_other));
-
-      const sub42 = [];
-      if (assetClasses) sub42.push(para(assetClasses));
-      if (val(data.asset_classes_note)) sub42.push(para(data.asset_classes_note));
-
-      const sub43 = [];
-      if (geography) sub43.push(para(geography));
-      if (val(data.geography_regions_in)) sub43.push(field('Regions in scope', data.geography_regions_in));
-      if (val(data.geography_regions_out)) sub43.push(field('Regions or countries excluded', data.geography_regions_out));
-      if (val(data.geography_dev_em_mix)) sub43.push(field('Developed / emerging mix', data.geography_dev_em_mix));
-
-      const sub44 = [];
+      const has41 = assetTypes || val(data.asset_types_other);
+      const has42 = assetClasses || val(data.asset_classes_note);
+      const has43 = geography || val(data.geography_regions_in) || val(data.geography_regions_out) || val(data.geography_dev_em_mix);
       const esg = data.esg_screening || {};
-      if (esg.enabled || val(esg.screen)) {
-        sub44.push(field('ESG screening', esg.screen || (esg.enabled ? 'Yes' : 'No')));
-      }
-      if (val(data.excluded_sectors)) sub44.push(field('Excluded sectors', data.excluded_sectors));
-      if (val(data.excluded_instruments)) sub44.push(field('Excluded instruments', data.excluded_instruments));
-      if (val(data.currency_hedging)) sub44.push(field('Currency hedging policy', data.currency_hedging));
+      const has44 = (esg.enabled || val(esg.screen)) || val(data.excluded_sectors) || val(data.excluded_instruments) || val(data.currency_hedging);
+      const has45 = val(data.max_single_position) || val(data.max_asset_class) || val(data.max_sector);
 
-      const sub45 = [];
-      if (val(data.max_single_position)) sub45.push(field('Maximum single position weight', `${data.max_single_position}%`));
-      if (val(data.max_asset_class)) sub45.push(field('Maximum exposure to any single asset class', `${data.max_asset_class}%`));
-      if (val(data.max_sector)) sub45.push(field('Maximum exposure to any single sector', `${data.max_sector}%`));
-
-      if (sub41.length || sub42.length || sub43.length || sub44.length || sub45.length) {
-        parts.push('<h2>4. Asset universe</h2>');
-        if (sub41.length) { parts.push('<h3>4.1 Eligible asset types</h3>'); parts.push(...sub41); }
-        if (sub42.length) { parts.push('<h3>4.2 Eligible asset classes</h3>'); parts.push(...sub42); }
-        if (sub43.length) { parts.push('<h3>4.3 Geography</h3>'); parts.push(...sub43); }
-        if (sub44.length) { parts.push('<h3>4.4 Filters and exclusions</h3>'); parts.push(...sub44); }
-        if (sub45.length) { parts.push('<h3>4.5 Concentration limits</h3>'); parts.push(...sub45); }
+      if (has41 || has42 || has43 || has44 || has45) {
+        H2('4. Asset universe');
+        if (has41) {
+          H3('4.1 Eligible asset types');
+          if (assetTypes) P(assetTypes);
+          if (val(data.asset_types_other)) P(data.asset_types_other);
+        }
+        if (has42) {
+          H3('4.2 Eligible asset classes');
+          if (assetClasses) P(assetClasses);
+          if (val(data.asset_classes_note)) P(data.asset_classes_note);
+        }
+        if (has43) {
+          H3('4.3 Geography');
+          if (geography) P(geography);
+          if (val(data.geography_regions_in)) FIELD('Regions in scope', data.geography_regions_in);
+          if (val(data.geography_regions_out)) FIELD('Regions or countries excluded', data.geography_regions_out);
+          if (val(data.geography_dev_em_mix)) FIELD('Developed / emerging mix', data.geography_dev_em_mix);
+        }
+        if (has44) {
+          H3('4.4 Filters and exclusions');
+          if (esg.enabled || val(esg.screen)) FIELD('ESG screening', esg.screen || (esg.enabled ? 'Yes' : 'No'));
+          if (val(data.excluded_sectors)) FIELD('Excluded sectors', data.excluded_sectors);
+          if (val(data.excluded_instruments)) FIELD('Excluded instruments', data.excluded_instruments);
+          if (val(data.currency_hedging)) FIELD('Currency hedging policy', data.currency_hedging);
+        }
+        if (has45) {
+          H3('4.5 Concentration limits');
+          if (val(data.max_single_position)) FIELD('Maximum single position weight', data.max_single_position + '%');
+          if (val(data.max_asset_class)) FIELD('Maximum exposure to any single asset class', data.max_asset_class + '%');
+          if (val(data.max_sector)) FIELD('Maximum exposure to any single sector', data.max_sector + '%');
+        }
       }
     }
 
-    // Section 5
+    // Section 5 — Portfolio management
     {
-      const sub51 = [];
-      if (style) sub51.push(para(style));
-      if (val(data.management_style_note)) sub51.push(para(data.management_style_note));
+      const has51 = style || val(data.management_style_note);
+      const has52 = cadence || val(data.drift_threshold);
+      const has53 = val(data.tactical_overrides);
 
-      const sub52 = [];
-      if (cadence) sub52.push(para(cadence));
-      if (val(data.drift_threshold)) sub52.push(field('Drift threshold', data.drift_threshold));
-
-      const sub53 = val(data.tactical_overrides) ? [para(data.tactical_overrides)] : [];
-
-      if (sub51.length || sub52.length || sub53.length) {
-        parts.push('<h2>5. Portfolio management</h2>');
-        if (sub51.length) { parts.push('<h3>5.1 Management style</h3>'); parts.push(...sub51); }
-        if (sub52.length) { parts.push('<h3>5.2 Cadence</h3>'); parts.push(...sub52); }
-        if (sub53.length) { parts.push('<h3>5.3 Tactical overrides</h3>'); parts.push(...sub53); }
+      if (has51 || has52 || has53) {
+        H2('5. Portfolio management');
+        if (has51) {
+          H3('5.1 Management style');
+          if (style) P(style);
+          if (val(data.management_style_note)) P(data.management_style_note);
+        }
+        if (has52) {
+          H3('5.2 Cadence');
+          if (cadence) P(cadence);
+          if (val(data.drift_threshold)) FIELD('Drift threshold', data.drift_threshold);
+        }
+        if (has53) {
+          H3('5.3 Tactical overrides');
+          P(data.tactical_overrides);
+        }
       }
     }
 
-    // Section 6
+    // Section 6 — Constraints
     {
-      const sub61 = val(data.liquidity_reserve) ? [para(data.liquidity_reserve)] : [];
-      const sub62 = [];
-      if (val(data.tax_residence)) sub62.push(field('Country of tax residence', data.tax_residence));
-      if (val(data.account_types)) sub62.push(field('Account types in use', data.account_types));
-      if (val(data.tax_considerations)) sub62.push(field('Tax considerations', data.tax_considerations));
+      const has61 = val(data.liquidity_reserve);
+      const has62 = val(data.tax_residence) || val(data.account_types) || val(data.tax_considerations);
 
-      if (sub61.length || sub62.length) {
-        parts.push('<h2>6. Constraints</h2>');
-        if (sub61.length) { parts.push('<h3>6.1 Liquidity reserve</h3>'); parts.push(...sub61); }
-        if (sub62.length) { parts.push('<h3>6.2 Jurisdictional and tax notes</h3>'); parts.push(...sub62); }
+      if (has61 || has62) {
+        H2('6. Constraints');
+        if (has61) { H3('6.1 Liquidity reserve'); P(data.liquidity_reserve); }
+        if (has62) {
+          H3('6.2 Jurisdictional and tax notes');
+          if (val(data.tax_residence)) FIELD('Country of tax residence', data.tax_residence);
+          if (val(data.account_types)) FIELD('Account types in use', data.account_types);
+          if (val(data.tax_considerations)) FIELD('Tax considerations', data.tax_considerations);
+        }
       }
     }
 
-    // Section 7 — always renders because 7.4 boilerplate is mandatory
-    {
-      parts.push('<h2>7. Review and revision</h2>');
-
-      if (val(data.annual_review_date)) {
-        parts.push('<h3>7.1 Review schedule</h3>');
-        parts.push(field('Annual review date', data.annual_review_date));
-      }
-      if (val(data.personal_benchmark)) {
-        parts.push('<h3>7.2 Personal benchmark</h3>');
-        parts.push(para(data.personal_benchmark));
-      }
-      if (Array.isArray(data.life_events) && data.life_events.length) {
-        parts.push('<h3>7.3 Triggering life events</h3>');
-        parts.push('<p>The following life events trigger an off-cycle review:</p>');
-        parts.push('<ul>');
-        for (const e of data.life_events) parts.push(`<li>${esc(e)}</li>`);
-        parts.push('</ul>');
-      }
-
-      // 7.4 — always rendered
-      parts.push('<h3>7.4 Revision vs deviation</h3>');
-      for (const p of u.SECTION_7_4_BOILERPLATE) parts.push(para(p));
+    // Section 7 — Review and revision (always renders)
+    H2('7. Review and revision');
+    if (val(data.annual_review_date)) {
+      H3('7.1 Review schedule');
+      FIELD('Annual review date', data.annual_review_date);
     }
+    if (val(data.personal_benchmark)) {
+      H3('7.2 Personal benchmark');
+      P(data.personal_benchmark);
+    }
+    if (Array.isArray(data.life_events) && data.life_events.length) {
+      H3('7.3 Triggering life events');
+      P('The following life events trigger an off-cycle review:');
+      for (const e of data.life_events) BULLET(e);
+    }
+    H3('7.4 Revision vs deviation');
+    for (const p of u.SECTION_7_4_BOILERPLATE) P(p);
 
     // Signature
-    parts.push('<div class="signature">');
-    parts.push(para('By signing below, I commit to following this document until I revise it under the rules set out in section 7.'));
-    if (val(data.signature)) parts.push(field('Signature', data.signature));
-    if (val(data.signature_date)) parts.push(field('Date', u.formatDate(data.signature_date)));
-    parts.push('</div>');
+    SIG_RULE();
+    P('By signing below, I commit to following this document until I revise it under the rules set out in section 7.');
+    if (val(data.signature)) FIELD('Signature', data.signature);
+    if (val(data.signature_date)) FIELD('Date', u.formatDate(data.signature_date));
 
     // Footer disclaimer
-    parts.push(`<p class="footer-disclaimer"><em>${esc(u.FOOTER_DISCLAIMER)}</em></p>`);
+    FOOT(u.FOOTER_DISCLAIMER);
 
-    return parts.join('\n');
-  }
-
-  function buildPDFContainer(innerHTML) {
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
-    wrapper.style.left = '-10000px';
-    wrapper.style.top = '0';
-    wrapper.style.width = '170mm'; // A4 width minus margins
-    wrapper.innerHTML = `
-      <style>
-        .ips-pdf-doc { font-family: Poppins, Calibri, Arial, sans-serif; color: #1F2F36; line-height: 1.6; font-size: 11pt; }
-        .ips-pdf-doc h1 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 22pt; font-weight: 700; margin: 0 0 6pt; line-height: 1.2; }
-        .ips-pdf-doc .subtitle { font-size: 13pt; color: #3A4255; margin: 0 0 18pt; }
-        .ips-pdf-doc h2 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 15pt; font-weight: 700; margin: 18pt 0 8pt; padding-top: 8pt; border-top: 1px solid #DEE2E6; line-height: 1.25; }
-        .ips-pdf-doc h3 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 12pt; font-weight: 700; margin: 12pt 0 6pt; }
-        .ips-pdf-doc p { margin: 0 0 8pt; }
-        .ips-pdf-doc .field { margin: 0 0 4pt; }
-        .ips-pdf-doc ul { margin: 0 0 8pt 16pt; padding: 0; }
-        .ips-pdf-doc li { margin: 0 0 4pt; }
-        .ips-pdf-doc .signature { margin-top: 24pt; padding-top: 12pt; border-top: 1px solid #DEE2E6; }
-        .ips-pdf-doc .footer-disclaimer { margin-top: 24pt; font-size: 9pt; color: #6B7280; line-height: 1.5; }
-      </style>
-      <div class="ips-pdf-doc">${innerHTML}</div>
-    `;
-    return wrapper;
-  }
-
-  async function generateFullIPSPDF(data) {
-    const u = ns.utils;
-    const html2pdf = await u.ensureHtml2Pdf();
-
-    const html = buildIPSHTML(data);
-    const container = buildPDFContainer(html);
-    document.body.appendChild(container);
-
+    // Save
     const filename = u.buildFilename(data.drafted_by, 'ips', 'pdf');
-
-    try {
-      await html2pdf()
-        .set({
-          margin: [25, 25, 25, 25],
-          filename,
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['css', 'legacy'] }
-        })
-        .from(container.querySelector('.ips-pdf-doc'))
-        .save();
-      u.fireDownloadComplete('pdf');
-    } finally {
-      document.body.removeChild(container);
-    }
+    doc.save(filename);
+    u.fireDownloadComplete('pdf');
   }
 
   ns.generateFullIPSPDF = generateFullIPSPDF;
-  ns._buildIPSHTML = buildIPSHTML; // exposed for testing
 })();
 
 /**
  * Policy card PDF generator — generatePolicyCardPDF(data).
  *
  * Single A4 page, 18mm top/bottom, 20mm left/right margins.
- * Six commitment blocks plus the rule plus footer.
- * Empty-field rules:
- *   abandonment_threshold blank → "To be set at next review"
- *   tactical_overrides blank   → "Never (default)"
- *   any other commitment blank → "(not specified)"
+ * First-person commitment narrative — the document the user checks before acting on a market move.
+ * Direct jsPDF text rendering (Helvetica).
  */
 (function () {
   'use strict';
 
   const ns = (window._pfolioIPS = window._pfolioIPS || {});
 
-  function esc(s) {
-    if (s === null || s === undefined) return '';
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
+  const PAGE_W = 210;
+  const MARGIN_X = 20;
+  const MARGIN_Y = 18;
+  const CONTENT_W = PAGE_W - 2 * MARGIN_X;
+  const PT = 25.4 / 72;
 
-  function or(value, fallback) {
-    return ns.utils.isEmpty(value) ? fallback : value;
-  }
-
-  // Take the first sentence — for fields whose IPS form is verbose but whose card needs a punchy commitment.
-  // Trailing terminal punctuation is dropped to match the label-style convention on the rest of the card.
   function firstSentence(text) {
     if (!text) return text;
     const m = String(text).match(/^([^.!?]*[.!?])/);
@@ -1164,189 +1264,252 @@
     return head.trim().replace(/[.!?]+$/, '');
   }
 
-  function buildPolicyCardHTML(data) {
+  function lowerFirst(s) {
+    if (!s) return s;
+    return s.charAt(0).toLowerCase() + s.slice(1);
+  }
+
+  function joinList(items) {
+    if (!items || !items.length) return '';
+    if (items.length === 1) return items[0];
+    if (items.length === 2) return items[0] + ' and ' + items[1];
+    return items.slice(0, -1).join(', ') + ' and ' + items[items.length - 1];
+  }
+
+  // Geography label maps to a phrase that fits the sentence "...in [phrase]".
+  const GEO_PHRASES = {
+    global: 'global markets',
+    developed: 'developed markets only',
+    custom: 'a custom-defined geography'
+  };
+
+  // Onboarding label maps to a phrase that fits "...deployed [phrase]".
+  const ONBOARDING_PHRASES = {
+    lump_sum: 'as a lump sum',
+    phased: 'in phased tranches',
+    hybrid: 'in a hybrid of immediate and phased deployment'
+  };
+
+  function buildPolicyCardData(data) {
     const u = ns.utils;
     const currency = data.base_currency || 'USD';
 
     const name = data.drafted_by || '';
     const draftedDate = u.formatDate(data.date_drafted);
-    const reviewDate = data.annual_review_date || '';
+    const reviewDate = u.formatDate(data.annual_review_date) || data.annual_review_date || '';
 
-    // Purpose
-    const purpose = or(data.intended_use, '(not specified)');
+    // Purpose — verbatim intended_use, or fallback
+    const purpose = u.isEmpty(data.intended_use)
+      ? 'The purpose of this portfolio has not yet been recorded.'
+      : data.intended_use;
 
-    // Horizon and capital
-    const horizonLabel = u.labelFor(u.HORIZON_LABELS, data.horizon) || '(not specified)';
+    // Horizon and capital — constructed sentence
+    const horizonLabel = u.labelFor(u.HORIZON_LABELS, data.horizon);
+    const horizonPhrase = horizonLabel ? lowerFirst(horizonLabel) : 'an unspecified horizon';
+
     const startingCapital = u.isEmpty(data.starting_capital)
-      ? '(not specified)'
+      ? 'an unspecified amount'
       : u.formatMoney(data.starting_capital, currency);
-    let contributingLine = '(not specified)';
+
+    let contribPhrase = '';
     if (data.ongoing_contributions) {
       const oc = data.ongoing_contributions;
-      if (oc.period === 'none') {
-        contributingLine = 'No ongoing contributions';
-      } else if (oc.amount) {
+      if (oc.period === 'none') contribPhrase = ' with no ongoing contributions';
+      else if (oc.amount) {
         const periodLabel = u.PERIOD_LABELS[oc.period] || '';
-        contributingLine = `${u.formatMoney(oc.amount, currency)}${periodLabel ? ' ' + periodLabel : ''}`;
+        contribPhrase = ' and adding ' + u.formatMoney(oc.amount, currency) + (periodLabel ? ' ' + periodLabel : '');
       }
     }
-    const onboardingLabel = u.labelFor(u.ONBOARDING_LABELS, data.onboarding_approach);
-    const onboardingLine = onboardingLabel
-      ? (data.onboarding_specify ? `${onboardingLabel} — ${data.onboarding_specify}` : onboardingLabel)
-      : '(not specified)';
 
-    // Risk
-    const riskLevel = u.labelFor(u.RISK_LEVEL_LABELS, data.risk_level) || '(not specified)';
-    const targetVol = u.labelFor(u.VOLATILITY_LABELS, data.target_volatility) || '(not specified)';
-    let abandonment = 'To be set at next review';
+    let onboardingSentence = '';
+    if (data.onboarding_approach) {
+      const phrase = ONBOARDING_PHRASES[data.onboarding_approach] || '';
+      if (phrase) {
+        onboardingSentence = ' The starting capital is deployed ' + phrase + '.';
+        if (!u.isEmpty(data.onboarding_specify)) onboardingSentence += ' ' + data.onboarding_specify;
+      }
+    }
+
+    const horizonAndCapital = 'I am investing over ' + horizonPhrase
+      + ', starting with ' + startingCapital + contribPhrase + '.'
+      + onboardingSentence;
+
+    // Risk — three paragraphs
+    const riskLevelLabel = u.labelFor(u.RISK_LEVEL_LABELS, data.risk_level);
+    let riskPara1 = riskLevelLabel
+      ? 'I accept a ' + lowerFirst(riskLevelLabel) + ' risk level.'
+      : 'My risk level has not yet been recorded.';
+    if (!u.isEmpty(data.risk_level_note)) riskPara1 += ' ' + data.risk_level_note;
+
+    const volLabel = u.labelFor(u.VOLATILITY_LABELS, data.target_volatility);
+    let riskPara2 = volLabel
+      ? 'I expect annual volatility of ' + lowerFirst(volLabel) + '.'
+      : 'My target volatility has not yet been recorded.';
+    if (!u.isEmpty(data.target_volatility_note)) riskPara2 += ' ' + data.target_volatility_note;
+
+    let abandonmentPara;
     if (!u.isEmpty(data.abandonment_amount) || !u.isEmpty(data.abandonment_pct)) {
       const parts = [];
       if (!u.isEmpty(data.abandonment_amount)) parts.push(u.formatMoney(data.abandonment_amount, currency));
-      if (!u.isEmpty(data.abandonment_pct)) parts.push(`${data.abandonment_pct}%`);
-      abandonment = parts.join(' / ');
+      if (!u.isEmpty(data.abandonment_pct)) parts.push(data.abandonment_pct + '%');
+      abandonmentPara = 'My abandonment threshold is ' + parts.join(' or ') + '.';
+    } else {
+      abandonmentPara = 'My abandonment threshold is to be set at next review.';
     }
+    if (!u.isEmpty(data.abandonment_note)) abandonmentPara += ' ' + data.abandonment_note;
 
     // Universe
-    const assetTypes = u.labelList(u.ASSET_TYPE_LABELS, data.asset_types) || '(not specified)';
-    const assetClasses = u.labelList(u.ASSET_CLASS_LABELS, data.asset_classes) || '(not specified)';
-    const geographyLabel = u.labelFor(u.GEOGRAPHY_LABELS, data.geography) || '(not specified)';
-    const exclusions = (() => {
-      const bits = [];
-      const esg = data.esg_screening || {};
-      if (esg.enabled && esg.screen) bits.push(esg.screen);
-      else if (esg.screen) bits.push(esg.screen);
-      if (data.excluded_sectors) bits.push(data.excluded_sectors);
-      if (data.excluded_instruments) bits.push(data.excluded_instruments);
-      return bits.length ? bits.join('; ') : 'None';
-    })();
+    const types = data.asset_types && data.asset_types.length
+      ? joinList(data.asset_types.map((k) => u.ASSET_TYPE_LABELS[k] || k))
+      : 'unspecified instruments';
+    const classes = data.asset_classes && data.asset_classes.length
+      ? lowerFirst(joinList(data.asset_classes.map((k) => u.ASSET_CLASS_LABELS[k] || k)))
+      : 'unspecified asset classes';
+    const geoPhrase = GEO_PHRASES[data.geography] || 'unspecified geographies';
+
+    let universePara = 'I use ' + types + ' as my instruments, allocated across ' + classes + ', in ' + geoPhrase + '.';
+
+    const exclusionBits = [];
+    const esg = data.esg_screening || {};
+    if (esg.screen) exclusionBits.push(esg.screen);
+    if (data.excluded_sectors) exclusionBits.push(data.excluded_sectors);
+    if (data.excluded_instruments) exclusionBits.push(data.excluded_instruments);
+    universePara += exclusionBits.length
+      ? ' Exclusions: ' + exclusionBits.join('; ') + '.'
+      : ' No exclusions.';
 
     // Management
-    const styleLabel = u.labelFor(u.STYLE_LABELS, data.management_style) || '(not specified)';
-    const cadenceLabel = u.labelFor(u.CADENCE_LABELS, data.cadence) || '(not specified)';
-    const tactical = u.isEmpty(data.tactical_overrides)
-      ? 'Never (default)'
-      : firstSentence(data.tactical_overrides);
+    const styleLabel = u.labelFor(u.STYLE_LABELS, data.management_style);
+    const cadenceLabel = u.labelFor(u.CADENCE_LABELS, data.cadence);
+    let managementPara;
+    if (styleLabel && cadenceLabel) {
+      managementPara = styleLabel + ' approach, rebalancing ' + lowerFirst(cadenceLabel) + '.';
+    } else if (styleLabel) {
+      managementPara = styleLabel + ' approach.';
+    } else {
+      managementPara = 'Management approach not yet recorded.';
+    }
+    const tacticalPhrase = u.isEmpty(data.tactical_overrides)
+      ? 'never'
+      : lowerFirst(firstSentence(data.tactical_overrides));
+    managementPara += ' Tactical overrides: ' + tacticalPhrase + '.';
 
-    // Liquidity reserve
-    const liquidity = or(data.liquidity_reserve, '(not specified)');
+    // Liquidity reserve — first sentence only (the full prose may be long)
+    const liquidityPara = u.isEmpty(data.liquidity_reserve)
+      ? 'Liquidity reserve not yet recorded.'
+      : firstSentence(data.liquidity_reserve) + '.';
 
-    // Footer
-    const footerWithDate = u.POLICY_CARD_FOOTER.replace('[DATE]', draftedDate || '(date not specified)');
-
-    return `
-      <div class="card-doc">
-        <header class="card-header">
-          <h1 class="card-title">${esc(name || 'Investment policy summary')}${name ? ' — investment policy summary' : ''}</h1>
-          <p class="card-meta"><em>Drafted ${esc(draftedDate || '(not specified)')} · Next review ${esc(reviewDate || '(not specified)')}</em></p>
-        </header>
-
-        <section class="card-block">
-          <h2>Purpose</h2>
-          <p>${esc(purpose)}</p>
-        </section>
-
-        <section class="card-block">
-          <h2>Horizon and capital</h2>
-          <p>${esc(horizonLabel)}</p>
-          <p>Starting capital ${esc(startingCapital)} · Contributing ${esc(contributingLine)}</p>
-          <p>Onboarding: ${esc(onboardingLine)}</p>
-        </section>
-
-        <section class="card-block">
-          <h2>Risk</h2>
-          <p>Risk level: ${esc(riskLevel)}</p>
-          <p>Target volatility: ${esc(targetVol)}</p>
-          <p>Abandonment threshold: ${esc(abandonment)}</p>
-        </section>
-
-        <section class="card-block">
-          <h2>Universe</h2>
-          <p>Asset types: ${esc(assetTypes)}</p>
-          <p>Asset classes: ${esc(assetClasses)}</p>
-          <p>Geography: ${esc(geographyLabel)}</p>
-          <p>Exclusions: ${esc(exclusions)}</p>
-        </section>
-
-        <section class="card-block">
-          <h2>Management</h2>
-          <p>Style: ${esc(styleLabel)}</p>
-          <p>Cadence: ${esc(cadenceLabel)}</p>
-          <p>Tactical overrides: ${esc(tactical)}</p>
-        </section>
-
-        <section class="card-block">
-          <h2>Liquidity reserve</h2>
-          <p>${esc(liquidity)}</p>
-        </section>
-
-        <section class="card-rule">
-          <h2>The rule, when markets move</h2>
-          <p>${esc(u.POLICY_CARD_RULE)}</p>
-        </section>
-
-        <footer class="card-footer">
-          <p><em>${esc(footerWithDate)}</em></p>
-        </footer>
-      </div>
-    `;
-  }
-
-  function buildContainer(innerHTML) {
-    const wrapper = document.createElement('div');
-    wrapper.style.position = 'fixed';
-    wrapper.style.left = '-10000px';
-    wrapper.style.top = '0';
-    wrapper.style.width = '170mm';
-    wrapper.innerHTML = `
-      <style>
-        .card-doc { font-family: Poppins, Calibri, Arial, sans-serif; color: #1F2F36; line-height: 1.45; font-size: 9.5pt; }
-        .card-doc .card-header { margin-bottom: 14pt; }
-        .card-doc .card-title { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 16pt; font-weight: 700; margin: 0 0 4pt; line-height: 1.2; }
-        .card-doc .card-meta { font-size: 9pt; color: #3A4255; margin: 0; }
-        .card-doc .card-block { margin: 0 0 9pt; }
-        .card-doc .card-block h2 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 10.5pt; font-weight: 700; margin: 0 0 3pt; color: #1F2F36; }
-        .card-doc .card-block p { margin: 0 0 2pt; }
-        .card-doc .card-rule { margin: 16pt 0 10pt; }
-        .card-doc .card-rule h2 { font-family: 'Source Serif Pro', Cambria, Georgia, serif; font-size: 11.5pt; font-weight: 700; margin: 0 0 4pt; }
-        .card-doc .card-rule p { margin: 0; line-height: 1.5; }
-        .card-doc .card-footer { margin-top: 14pt; font-size: 8pt; color: #6B7280; line-height: 1.4; }
-        .card-doc .card-footer p { margin: 0; }
-      </style>
-      ${innerHTML}
-    `;
-    return wrapper;
+    return {
+      name, draftedDate, reviewDate,
+      purpose,
+      horizonAndCapital,
+      riskPara1, riskPara2, abandonmentPara,
+      universePara,
+      managementPara,
+      liquidityPara,
+      rule: u.POLICY_CARD_RULE,
+      footer: u.POLICY_CARD_FOOTER.replace('[DATE]', draftedDate || '(date not specified)')
+    };
   }
 
   async function generatePolicyCardPDF(data) {
     const u = ns.utils;
-    const html2pdf = await u.ensureHtml2Pdf();
+    const jsPDF = await u.ensureJsPDF();
+    const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
 
-    const html = buildPolicyCardHTML(data);
-    const container = buildContainer(html);
-    document.body.appendChild(container);
+    // Best-effort logo load — if it fails (network/CORS), proceed without it.
+    let logo = null;
+    try { logo = await u.loadPfolioLogo(); } catch (e) { console.warn('[policy-card] logo unavailable', e); }
+
+    const v = buildPolicyCardData(data);
+
+    let y = MARGIN_Y;
+
+    // pfolio logo, top-right, clickable link to pfolio.io
+    if (logo) {
+      const logoW = 22;
+      const logoH = logoW / logo.aspect;
+      const logoX = PAGE_W - MARGIN_X - logoW;
+      const logoY = MARGIN_Y;
+      doc.addImage(logo.dataURL, 'PNG', logoX, logoY, logoW, logoH);
+      doc.link(logoX, logoY, logoW, logoH, { url: u.PFOLIO_SITE_URL });
+      // Push content down so the title clears the logo.
+      if (logoH > 0) y = MARGIN_Y + logoH + 4;
+    }
+
+    function setFont(style) { doc.setFont('helvetica', style); }
+    function setSize(pt) { doc.setFontSize(pt); }
+    function setColor(r, g, b) { doc.setTextColor(r, g, b); }
+    function lineH(pt, factor) { return pt * PT * (factor || 1.4); }
+    function space(pt) { y += pt * PT; }
+
+    function writeText(text, opts) {
+      opts = opts || {};
+      const fontSize = opts.fontSize || 11;
+      const fontStyle = opts.fontStyle || 'normal';
+      const color = opts.color || [31, 47, 54]; // Deep Slate #1F2F36
+      const lineFactor = opts.lineFactor || 1.4;
+
+      setFont(fontStyle);
+      setSize(fontSize);
+      setColor(color[0], color[1], color[2]);
+
+      const lines = doc.splitTextToSize(String(text), CONTENT_W);
+      const lh = lineH(fontSize, lineFactor);
+      for (let i = 0; i < lines.length; i++) {
+        doc.text(lines[i], MARGIN_X, y, { baseline: 'top' });
+        y += lh;
+      }
+    }
+
+    function block(heading, paragraphs) {
+      writeText(heading, { fontSize: 11, fontStyle: 'bold' });
+      space(2);
+      paragraphs.forEach((p, i) => {
+        writeText(p, { fontSize: 10.5, lineFactor: 1.45 });
+        if (i < paragraphs.length - 1) space(3);
+      });
+      space(7);
+    }
+
+    // Title
+    const titleText = v.name ? v.name + '—investment policy' : 'Investment policy';
+    writeText(titleText, { fontSize: 18, fontStyle: 'bold', lineFactor: 1.2 });
+    space(3);
+
+    // Meta
+    const metaText = 'Drafted ' + (v.draftedDate || '(not specified)')
+      + ' · Next review ' + (v.reviewDate || '(not specified)');
+    writeText(metaText, { fontSize: 9, fontStyle: 'italic', color: [68, 68, 68] });
+    space(11);
+
+    block('Purpose', [v.purpose]);
+    block('Horizon and capital', [v.horizonAndCapital]);
+    block('Risk', [v.riskPara1, v.riskPara2, v.abandonmentPara]);
+    block('Universe', [v.universePara]);
+    block('Management', [v.managementPara]);
+    block('Liquidity reserve', [v.liquidityPara]);
+
+    // The rule — visually anchored: divider line above + slightly larger heading
+    space(4);
+    doc.setDrawColor(31, 47, 54); // Deep Slate
+    doc.setLineWidth(0.4);
+    doc.line(MARGIN_X, y, MARGIN_X + CONTENT_W, y);
+    space(7);
+    writeText('The rule, when markets move', { fontSize: 13, fontStyle: 'bold' });
+    space(4);
+    writeText(v.rule, { fontSize: 11, lineFactor: 1.55 });
+
+    // Footer
+    space(14);
+    writeText(v.footer, { fontSize: 8, fontStyle: 'italic', color: [102, 102, 102], lineFactor: 1.4 });
 
     const filename = u.buildFilename(data.drafted_by, 'policy-card', 'pdf');
-
-    try {
-      await html2pdf()
-        .set({
-          margin: [18, 20, 18, 20],
-          filename,
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['avoid-all'] }
-        })
-        .from(container.querySelector('.card-doc'))
-        .save();
-      u.fireDownloadComplete('policy-card');
-    } finally {
-      document.body.removeChild(container);
-    }
+    doc.save(filename);
+    u.fireDownloadComplete('policy-card');
   }
 
   ns.generatePolicyCardPDF = generatePolicyCardPDF;
-  ns._buildPolicyCardHTML = buildPolicyCardHTML;
 })();
 
 /**
@@ -1728,9 +1891,25 @@
     return node;
   }
 
+  // Group-input field types host multiple actual <input>s with suffixed IDs.
+  // Their wrapper label is a group label, so no `for` association.
+  const GROUP_TYPES = new Set([
+    'single_select', 'single_select_richlabel',
+    'multi_select', 'multi_select_with_other', 'multi_select_editable',
+    'yes_no', 'yes_no_with_text',
+    'two_numbers', 'money_with_period'
+  ]);
+
   function fieldWrapper(def, inputNode, opts = {}) {
+    const isGroup = GROUP_TYPES.has(def.type);
+    // For group inputs, use a div (not a label) so the browser doesn't warn
+    // about an unassociated <label>. Each individual input inside the group
+    // already has its own <label> for accessibility.
+    const labelTag = isGroup ? 'div' : 'label';
+    const labelAttrs = { class: 'ips-field__label' };
+    if (!isGroup) labelAttrs.for = 'f_' + def.id;
     return el('div', { class: 'ips-field', 'data-field': def.id }, [
-      def.label ? el('label', { class: 'ips-field__label', for: 'f_' + def.id }, def.label) : null,
+      def.label ? el(labelTag, labelAttrs, def.label) : null,
       inputNode,
       def.guidance && opts.showGuidance ? el('p', { class: 'ips-field__guidance' }, def.guidance) : null
     ]);
@@ -1847,6 +2026,8 @@
     });
 
     const periodSelect = el('select', {
+      id: 'f_' + def.id + '_period',
+      name: def.id + '_period',
       class: 'ips-select',
       onChange: (e) => store.setNested(def.id, 'period', e.target.value || null)
     }, [
@@ -2023,6 +2204,8 @@
       const row = el('div', { class: 'ips-editable-row' }, [
         el('input', {
           type: 'text',
+          id: 'f_' + def.id + '_' + idx,
+          name: def.id + '_' + idx,
           class: 'ips-input',
           value: item,
           onInput: (e) => {
@@ -2100,9 +2283,12 @@
 
     const children = [radios];
     if (v.enabled) {
+      const textareaId = 'f_' + def.id + '_text';
       children.push(el('div', { class: 'ips-yes-text' }, [
-        def.text_label_if_yes ? el('label', { class: 'ips-field__sublabel' }, def.text_label_if_yes) : null,
+        def.text_label_if_yes ? el('label', { class: 'ips-field__sublabel', for: textareaId }, def.text_label_if_yes) : null,
         el('textarea', {
+          id: textareaId,
+          name: def.id + '_text',
           class: 'ips-textarea',
           rows: 2,
           placeholder: def.text_placeholder || '',
@@ -2408,7 +2594,7 @@
           children.push(el('div', { class: 'ips-helper__cta' }, [
             el('button', {
               type: 'button',
-              class: 'ips-btn ips-btn--apply',
+              class: 'ips-btn ips-btn--outline',
               onClick: () => {
                 const cur = store.get().calibrator || {};
                 store.set('calibrator', { ...cur, open: true, step: 0, result: null });
@@ -2597,7 +2783,7 @@
                   ]
                 }
               },
-              { id: 'target_value', label: 'Target portfolio value at horizon, if you have one', type: 'money', tier: 'advanced', placeholder: 'amount, or leave blank' },
+              { id: 'target_value', label: 'Target portfolio value at horizon, if you have one', type: 'money', tier: 'advanced' },
               { id: 'secondary_objectives', label: 'Secondary objectives', type: 'textarea', tier: 'advanced', rows: 2, placeholder: 'E.g. income generation in retirement, leaving a legacy, philanthropic giving.' }
             ]
           },
@@ -2831,7 +3017,7 @@
             number: '4.5',
             title: 'Concentration limits',
             tier: 'advanced',
-            intro: 'Position-size rules — risk controls within the universe.',
+            intro: 'Position-size rules—risk controls within the universe.',
             fields: [
               { id: 'max_single_position', label: 'Maximum single position weight', type: 'percentage', tier: 'advanced' },
               { id: 'max_asset_class', label: 'Maximum exposure to any single asset class', type: 'percentage', tier: 'advanced' },
@@ -2894,7 +3080,7 @@
                       options: [
                         { value: 'very', label: 'By my own judgement, in the moment' },
                         { value: 'somewhat', label: 'A mix of rules and judgement' },
-                        { value: 'not', label: 'By rules set in advance — whether I never touch them again or follow them on a fixed cadence' }
+                        { value: 'not', label: 'By rules set in advance—whether I never touch them again or follow them on a fixed cadence' }
                       ]
                     }
                   ]
@@ -3115,8 +3301,10 @@
         advancedToggleBtn('detail', isOpen, () => store.toggleAdvancedOpen(subKey))
       ];
       if (isOpen) {
-        if (sub.intro) children.push(sectionIntro(sub.intro));
-        children.push(...renderFieldsGroup(sub.fields || [], state, store, ctx));
+        const inner = [];
+        if (sub.intro) inner.push(sectionIntro(sub.intro));
+        inner.push(...renderFieldsGroup(sub.fields || [], state, store, ctx));
+        children.push(el('div', { class: 'ips-advanced-detail' }, inner));
       }
       return el('section', { class: 'ips-sub ips-sub--advanced' }, children);
     }
@@ -3138,7 +3326,7 @@
     if (optionalAdvanced.length) {
       children.push(advancedToggleBtn('detail', isOpen, () => store.toggleAdvancedOpen(subKey)));
       if (isOpen) {
-        children.push(...renderFieldsGroup(optionalAdvanced, state, store, ctx));
+        children.push(el('div', { class: 'ips-advanced-detail' }, renderFieldsGroup(optionalAdvanced, state, store, ctx)));
       }
     }
 
@@ -3162,7 +3350,7 @@
     if (advancedFields.length) {
       children.push(advancedToggleBtn('optional details', isOpen, () => store.toggleAdvancedOpen(subKey)));
       if (isOpen) {
-        children.push(...renderFieldsGroup(advancedFields, state, store, ctx));
+        children.push(el('div', { class: 'ips-advanced-detail' }, renderFieldsGroup(advancedFields, state, store, ctx)));
       }
     }
 
@@ -3183,7 +3371,7 @@
     if (advancedFields.length) {
       children.push(advancedToggleBtn('detail', isOpen, () => store.toggleAdvancedOpen(subKey)));
       if (isOpen) {
-        children.push(...renderFieldsGroup(advancedFields, state, store, ctx));
+        children.push(el('div', { class: 'ips-advanced-detail' }, renderFieldsGroup(advancedFields, state, store, ctx)));
       }
     }
     return el('section', { class: 'ips-section' }, children);
@@ -3309,7 +3497,7 @@
 .ips-form-root * { box-sizing: border-box; }
 .ips-form-root input[type="radio"], .ips-form-root input[type="checkbox"] { accent-color: #1F2F36; }
 
-.ips-section { padding: 32px 0; border-top: 1px solid #264653; }
+.ips-section { padding: 32px 0; border-top: 1px solid #CED4DA; }
 .ips-section:first-child { border-top: none; padding-top: 0; }
 .ips-section__header { margin: 0 0 8px; }
 .ips-section__title { font-family: 'Source Serif Pro', Georgia, serif; font-weight: 700; font-size: 24px; line-height: 1.25; color: #1F2F36; margin: 0; letter-spacing: -0.005em; }
@@ -3325,36 +3513,43 @@
 .ips-field__sublabel { display: block; font-size: 13px; font-weight: 400; color: #6B7280; margin: 0 0 4px; }
 .ips-field__guidance { font-size: 12px; line-height: 1.55; color: #9AA0AB; margin: 4px 0 0; font-style: italic; }
 
-.ips-input, .ips-textarea, .ips-select { width: 100%; padding: 9px 12px; border: 1px solid #264653; border-radius: 6px; font: inherit; font-size: 14px; color: #1F2F36; background: #FFFFFF; transition: border-color 0.15s ease; }
+.ips-input, .ips-textarea, .ips-select { width: 100%; padding: 9px 12px; border: 1px solid #CED4DA; border-radius: 6px; font: inherit; font-size: 14px; color: #1F2F36; background: #FFFFFF; transition: border-color 0.15s ease; }
 .ips-input { max-width: 480px; }
 .ips-select { max-width: 480px; }
-.ips-input:focus, .ips-textarea:focus, .ips-select:focus { outline: none; border-color: #00BFB2; box-shadow: 0 0 0 3px rgba(0,191,178,0.18); }
+.ips-input:focus, .ips-textarea:focus, .ips-select:focus { outline: none; border-color: #264653; box-shadow: 0 0 0 0.25rem rgba(38,70,83,0.25); }
 .ips-textarea { resize: vertical; min-height: 60px; max-width: 600px; line-height: 1.55; font-family: inherit; }
 
 .ips-input--number { width: 140px; min-width: 0; }
 .ips-input-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ips-input-row .ips-select { width: auto; max-width: 160px; min-width: 120px; }
 .ips-input-prefix, .ips-input-suffix { font-size: 13px; color: #6B7280; font-variant-numeric: tabular-nums; }
 .ips-input-prefix { padding-right: 2px; }
 .ips-input--other { width: 220px; }
 
-.ips-radios { display: flex; flex-direction: column; gap: 8px; }
+/* Per-field width overrides */
+.ips-form-root [data-field="intended_use"] .ips-textarea,
+.ips-form-root [data-field="onboarding_specify"] .ips-input,
+.ips-form-root [data-field="liquidity_reserve"] .ips-input { max-width: none; }
+.ips-form-root [data-field="target_volatility"] .ips-select { max-width: 280px; }
+
+.ips-radios { display: flex; flex-direction: column; gap: 2px; }
 .ips-radios--inline { flex-direction: row; gap: 16px; flex-wrap: wrap; }
-.ips-radio { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 4px 0; }
+.ips-radio { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 1px 0; }
 .ips-radio input { margin-top: 3px; }
 .ips-radio__label { font-size: 14px; color: #1F2F36; line-height: 1.5; }
 
 .ips-rich-radios { display: flex; flex-direction: column; gap: 8px; }
-.ips-rich-radio { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid #264653; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; align-items: flex-start; }
-.ips-rich-radio:hover { border-color: #1F2F36; }
-.ips-rich-radio.is-checked { border-color: #1F2F36; border-width: 2px; padding: 13px 15px; background: #FFFFFF; }
+.ips-rich-radio { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid #CED4DA; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; align-items: flex-start; background: rgba(255,255,255,0.5); }
+.ips-rich-radio:hover { border-color: #264653; background: rgba(255,255,255,0.75); }
+.ips-rich-radio.is-checked { border-color: #264653; border-width: 2px; padding: 13px 15px; background: #FFFFFF; }
 .ips-rich-radio__input { margin-top: 3px; }
 .ips-rich-radio__body { display: flex; flex-direction: column; gap: 3px; }
 .ips-rich-radio__title { font-size: 14px; font-weight: 600; color: #1F2F36; }
 .ips-rich-radio__desc { font-size: 13px; color: #3A4255; line-height: 1.55; }
 .ips-rich-radio__example { font-size: 12px; color: #6B7280; font-style: italic; line-height: 1.5; }
 
-.ips-checks { display: flex; flex-direction: column; gap: 6px; }
-.ips-check { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 4px 0; }
+.ips-checks { display: flex; flex-direction: column; gap: 2px; }
+.ips-check { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; padding: 1px 0; }
 .ips-check input { margin-top: 3px; }
 .ips-check__label { font-size: 14px; color: #1F2F36; line-height: 1.5; }
 .ips-check-with-other { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
@@ -3371,18 +3566,22 @@
 .ips-editable-row .ips-input { flex: 1; }
 
 .ips-btn { font-family: inherit; font-size: 13px; padding: 7px 14px; border-radius: 6px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
-.ips-btn--ghost { background: transparent; color: #6B7280; border: 1px solid #264653; }
+.ips-btn--ghost { background: transparent; color: #6B7280; border: 1px solid #CED4DA; }
 .ips-btn--ghost:hover { border-color: #1F2F36; color: #1F2F36; }
-.ips-btn--apply { background: #00BFB2; color: #FFFFFF; border: 1px solid #00BFB2; font-weight: 500; }
-.ips-btn--apply:hover { background: #009993; border-color: #009993; }
+.ips-btn--apply { background: #264653; color: #FFFFFF; border: 1px solid #264653; font-weight: 500; }
+.ips-btn--apply:hover { background: #1B3640; border-color: #1B3640; }
+.ips-btn--outline { background: transparent; color: #1F2F36; border: 1px solid #264653; font-weight: 500; }
+.ips-btn--outline:hover { background: #264653; color: #FFFFFF; }
 .ips-btn--add { align-self: flex-start; margin-top: 4px; }
 
-.ips-advanced-toggle { background: transparent; color: #1F2F36; border: none; padding: 8px 0; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.ips-advanced-toggle { background: transparent; color: #1F2F36; border: none; padding: 8px 0; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; display: block; text-align: left; }
 .ips-advanced-toggle:hover { text-decoration: underline; }
 .ips-advanced-toggle.is-open { color: #1F2F36; }
 
-.ips-helper { margin: 8px 0 16px; padding: 14px 16px; background: #FFFFFF; border-left: 3px solid #00BFB2; border-radius: 0 6px 6px 0; }
-.ips-helper-toggle { background: transparent; color: #1F2F36; border: none; padding: 6px 0; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.ips-helper, .ips-advanced-detail { margin: 8px 0 16px; padding: 14px 16px; background: #FFFFFF; border-left: 3px solid #00BFB2; border-radius: 0 6px 6px 0; }
+.ips-advanced-detail .ips-field:first-child { margin-top: 0; }
+.ips-advanced-detail .ips-field:last-child { margin-bottom: 0; }
+.ips-helper-toggle { background: transparent; color: #1F2F36; border: none; padding: 6px 0; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; display: block; text-align: left; }
 .ips-helper-toggle:hover { text-decoration: underline; }
 .ips-helper__intro { font-size: 13px; color: #6B7280; margin: 8px 0 12px; line-height: 1.55; }
 .ips-helper__preamble { font-size: 13px; color: #3A4255; margin: 8px 0 12px; line-height: 1.6; }
@@ -3401,10 +3600,10 @@
 .ips-suggestion { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 0; padding: 10px 14px; background: #FFFFFF; border-left: 3px solid #00BFB2; border-radius: 0 6px 6px 0; }
 .ips-suggestion__text { font-size: 13px; color: #1F2F36; line-height: 1.5; flex: 1; min-width: 240px; }
 
-.ips-drawdown { margin: 16px 0 0; padding: 16px; background: #FFFFFF; border: 1px solid #264653; border-radius: 8px; }
+.ips-drawdown { margin: 16px 0 0; padding: 16px; background: #FFFFFF; border: 1px solid #CED4DA; border-radius: 8px; }
 .ips-drawdown__intro { font-size: 13px; color: #3A4255; margin: 0 0 10px; line-height: 1.55; }
 .ips-drawdown__list { list-style: none; padding: 0; margin: 0 0 14px; }
-.ips-drawdown__row { font-size: 13px; line-height: 1.55; color: #1F2F36; padding: 5px 0; border-bottom: 1px dashed #264653; font-variant-numeric: tabular-nums; }
+.ips-drawdown__row { font-size: 13px; line-height: 1.55; color: #1F2F36; padding: 5px 0; border-bottom: 1px dashed #CED4DA; font-variant-numeric: tabular-nums; }
 .ips-drawdown__row:last-child { border-bottom: none; }
 .ips-drawdown__post { font-size: 13px; color: #3A4255; line-height: 1.6; margin: 14px 0; }
 .ips-drawdown__anchors-intro { font-size: 13px; color: #3A4255; margin: 14px 0 6px; }
@@ -3422,29 +3621,30 @@
 .ips-privacy-note strong { font-weight: 600; }
 
 /* Inline calibrator inside section 3.1 helper */
-.ips-calibrator { padding: 14px 0; }
+.ips-calibrator { padding: 0; }
 .ips-calibrator__summary { font-size: 12px; color: #6B7280; margin: 0 0 12px; padding: 8px 12px; background: #FFFFFF; border-radius: 6px; line-height: 1.5; }
 .ips-calibrator__summary strong { font-weight: 600; color: #1F2F36; }
 .ips-calibrator__h { font-family: 'Source Serif Pro', Georgia, serif; font-weight: 700; font-size: 15px; line-height: 1.3; margin: 6px 0 6px; color: #1F2F36; }
 .ips-calibrator--blocked { background: #FFFFFF; padding: 14px 16px; border-radius: 6px; }
 .ips-calibrator__blocker { font-size: 13px; color: #1F2F36; margin: 0 0 10px; line-height: 1.55; }
-.ips-helper__cta { margin: 16px 0 0; padding-top: 12px; border-top: 1px dashed #264653; display: flex; }
+.ips-helper__cta { margin: 16px 0 0; padding-top: 12px; border-top: 1px dashed #CED4DA; display: flex; }
 
 /* Questionnaire widget (also reused by calibrator inline) */
-.ips-q-card { font-family: Poppins, system-ui, sans-serif; color: #1F2F36; line-height: 1.55; padding: 28px 32px; background: #FFFFFF; border: 1px solid #264653; border-radius: 12px; accent-color: #1F2F36; }
+.ips-q-card { font-family: Poppins, system-ui, sans-serif; color: #1F2F36; line-height: 1.55; padding: 28px 32px; background: #FFFFFF; border: 1px solid #CED4DA; border-radius: 12px; accent-color: #1F2F36; }
 .ips-q-card * { box-sizing: border-box; }
 .ips-q-h { font-family: 'Source Serif Pro', Georgia, serif; font-weight: 700; font-size: 22px; line-height: 1.25; margin: 0 0 6px; color: #1F2F36; }
 .ips-q-lede { font-size: 14px; color: #3A4255; margin: 0 0 20px; line-height: 1.6; }
 .ips-q-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #6B7280; margin: 0 0 14px; }
 .ips-q-label { display: block; font-size: 15px; font-weight: 500; color: #1F2F36; margin: 6px 0 14px; line-height: 1.5; }
 .ips-q-options { display: flex; flex-direction: column; gap: 8px; margin: 0 0 18px; }
-.ips-q-option { text-align: left; padding: 12px 14px; background: #FFFFFF; border: 1px solid #264653; border-radius: 8px; font: inherit; font-size: 14px; color: #1F2F36; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
-.ips-q-option:hover { border-color: #1F2F36; background: #FFFFFF; }
-.ips-q-option.is-selected { border-color: #1F2F36; border-width: 2px; padding: 11px 13px; background: #FFFFFF; font-weight: 500; }
+.ips-q-option { text-align: left; padding: 12px 14px; background: rgba(255,255,255,0.5); border: 1px solid #CED4DA; border-radius: 8px; font: inherit; font-size: 14px; color: #1F2F36; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.ips-q-option:hover { border-color: #264653; background: rgba(255,255,255,0.75); }
+.ips-q-option.is-selected { border-color: #264653; border-width: 2px; padding: 11px 13px; background: #FFFFFF; font-weight: 500; }
 .ips-q-checks { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
-.ips-q-check { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: #FFFFFF; border: 1px solid #264653; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; font-size: 14px; }
+.ips-q-check { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: rgba(255,255,255,0.5); border: 1px solid #CED4DA; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; font-size: 14px; }
+.ips-q-check:hover { background: rgba(255,255,255,0.75); }
 .ips-q-check input { margin-top: 3px; }
-.ips-q-check.is-selected { border-color: #1F2F36; border-width: 2px; padding: 9px 13px; background: #FFFFFF; }
+.ips-q-check.is-selected { border-color: #264653; border-width: 2px; padding: 9px 13px; background: #FFFFFF; }
 .ips-q-hint { font-size: 12px; color: #9AA0AB; margin: 4px 0 14px; font-style: italic; }
 .ips-q-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 0; align-items: center; }
 .ips-q-link { background: transparent; color: #1F2F36; border: none; padding: 6px 0; font-family: inherit; font-size: 13px; cursor: pointer; }
@@ -3462,8 +3662,8 @@
 .ips-q-grounding-note { font-style: italic; color: #3A4255 !important; }
 
 /* Marketing touchpoint 1 card (populated by questionnaire) */
-.ips-mkt-card { display: flex; flex-direction: column; gap: 6px; padding: 20px 24px; background: #1F2F36; color: #FFFFFF; border-radius: 12px; text-decoration: none; transition: background 0.2s ease; }
-.ips-mkt-card:hover { background: #0F1F26; }
+.ips-mkt-card { display: flex; flex-direction: column; gap: 6px; padding: 20px 24px; background: #264653; color: #FFFFFF; border-radius: 12px; text-decoration: none; transition: background 0.2s ease; }
+.ips-mkt-card:hover { background: #1B3640; }
 .ips-mkt-card__text { font-family: 'Source Serif Pro', Georgia, serif; font-size: 18px; line-height: 1.35; font-weight: 400; }
 .ips-mkt-card__text strong { font-weight: 700; }
 .ips-mkt-card__cta { font-family: Poppins, system-ui, sans-serif; font-size: 13px; color: #00BFB2; font-weight: 500; }
@@ -3472,6 +3672,24 @@
    These selectors target the page-level wrapper sections on the IPS template page,
    not the form-internal subsections. */
 .ips-hero, .ips-section, .ips-disclaimer-section { background: #E7E7E7; }
+
+/* Download section — policy card is the primary artefact, Word/PDF are backups. */
+.ips-downloads-host { display: block; }
+.ips-dl-primary-section { background: #FFFFFF; border: 1px solid #00BFB2; border-radius: 12px; padding: 24px 28px; margin: 0 0 20px; }
+.ips-dl-heading { font-family: 'Source Serif Pro', Georgia, serif; font-size: 22px; font-weight: 700; color: #1F2F36; margin: 0 0 6px; line-height: 1.25; }
+.ips-dl-lede { font-family: Poppins, system-ui, sans-serif; font-size: 14px; line-height: 1.6; color: #3A4255; margin: 0 0 16px; max-width: 640px; }
+/* Match the .ips-btn--apply style used by the "Apply to risk level" button. */
+.ips-dl-primary { padding: 12px 22px; background: #264653; color: #FFFFFF; border: 1px solid #264653; border-radius: 6px; font-family: Poppins, system-ui, sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+.ips-dl-primary:hover { background: #1B3640; border-color: #1B3640; }
+.ips-dl-primary:disabled { background: #264653; border-color: #264653; opacity: 0.5; cursor: not-allowed; }
+
+.ips-dl-secondary-section { padding: 0 4px; }
+.ips-dl-secondary-label { font-family: Poppins, system-ui, sans-serif; font-size: 13px; font-weight: 500; color: #6B7280; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+.ips-dl-secondary-row { display: flex; gap: 10px; flex-wrap: wrap; }
+/* Match the .ips-btn--outline style used by the "use the calibrator" button. */
+.ips-dl-secondary { font-family: inherit; font-size: 13px; padding: 7px 14px; border-radius: 6px; cursor: pointer; background: transparent; color: #1F2F36; border: 1px solid #264653; font-weight: 500; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.ips-dl-secondary:hover { background: #264653; color: #FFFFFF; border-color: #264653; }
+.ips-dl-secondary:disabled { background: transparent; color: #1F2F36; border-color: #264653; opacity: 0.5; cursor: not-allowed; }
 
 @media (max-width: 640px) {
   .ips-section { padding: 24px 0; }
@@ -3600,17 +3818,17 @@
   ];
 
   const OBJECTIVE = [
-    { value: 'capital_preservation', label: 'Capital preservation — prioritising safety of principal over returns', score: 0 },
-    { value: 'income_generation',    label: 'Income generation — seeking regular income from investments',          score: 2 },
-    { value: 'capital_growth',       label: 'Capital growth — aiming to increase the value of your investments',     score: 3 },
-    { value: 'speculation',          label: 'Speculation or aggressive growth — taking higher risk for potentially higher returns', score: 4 }
+    { value: 'capital_preservation', label: 'Capital preservation—prioritising safety of principal over returns', score: 0 },
+    { value: 'income_generation',    label: 'Income generation—seeking regular income from investments',          score: 2 },
+    { value: 'capital_growth',       label: 'Capital growth—aiming to increase the value of your investments',     score: 3 },
+    { value: 'speculation',          label: 'Speculation or aggressive growth—taking higher risk for potentially higher returns', score: 4 }
   ];
 
   const KNOWLEDGE = [
-    { value: 'novice',       label: 'Novice — no prior knowledge',     score: 1 },
-    { value: 'beginner',     label: 'Beginner — basic understanding',  score: 2 },
-    { value: 'intermediate', label: 'Intermediate — moderate understanding', score: 3 },
-    { value: 'expert',       label: 'Expert — advanced knowledge',     score: 4 }
+    { value: 'novice',       label: 'Novice—no prior knowledge',     score: 1 },
+    { value: 'beginner',     label: 'Beginner—basic understanding',  score: 2 },
+    { value: 'intermediate', label: 'Intermediate—moderate understanding', score: 3 },
+    { value: 'expert',       label: 'Expert—advanced knowledge',     score: 4 }
   ];
 
   // The exact list of products. count of selections drives the experience score.
@@ -3626,11 +3844,11 @@
   ];
 
   const RISK_LEVEL = [
-    { value: 'very_low', label: 'Very low — I want to avoid losses, even if returns are small', score: 0 },
-    { value: 'low',      label: 'Low — I prefer safety but can accept minor fluctuations',       score: 1 },
-    { value: 'moderate', label: 'Moderate — I am comfortable with some ups and downs for better returns', score: 2 },
-    { value: 'high',     label: 'High — I can accept significant fluctuations for higher growth potential', score: 3 },
-    { value: 'very_high', label: 'Very high — I seek maximum growth and accept large risks of loss', score: 4 }
+    { value: 'very_low', label: 'Very low—I want to avoid losses, even if returns are small', score: 0 },
+    { value: 'low',      label: 'Low—I prefer safety but can accept minor fluctuations',       score: 1 },
+    { value: 'moderate', label: 'Moderate—I am comfortable with some ups and downs for better returns', score: 2 },
+    { value: 'high',     label: 'High—I can accept significant fluctuations for higher growth potential', score: 3 },
+    { value: 'very_high', label: 'Very high—I seek maximum growth and accept large risks of loss', score: 4 }
   ];
 
   const VOLATILITY = [
@@ -3929,7 +4147,7 @@
         E('button', { type: 'button', class: 'ips-btn ips-btn--ghost', onClick: back }, idx === 0 ? '← Back to framework' : '← Back'),
         E('button', {
           type: 'button',
-          class: 'ips-btn ips-btn--apply',
+          class: 'ips-btn ips-btn--outline',
           disabled: !isAnswered() ? 'disabled' : false,
           onClick: () => { if (isAnswered()) next(); }
         }, idx === steps.length - 1 ? 'See result →' : 'Next →')
@@ -3962,7 +4180,9 @@
     const mktCard = result.level === 0
       ? null
       : E('a', {
-          href: '/portfolios',
+          href: 'https://www.pfolio.io/help/our-portfolios',
+          target: '_blank',
+          rel: 'noopener noreferrer',
           class: 'ips-mkt-card'
         }, [
           E('span', { class: 'ips-mkt-card__text', html: `Your risk profile maps to pfolio's <strong>${result.title}</strong> portfolios.` }),
@@ -4079,7 +4299,8 @@
           else if (kind === 'policy-card') await api.generatePolicyCardPDF(data);
         } catch (err) {
           console.error('[pfolioIPS] generation failed', err);
-          alert('Sorry — something went wrong generating that file. Check the console for details.');
+          const detail = err && err.message ? err.message : String(err);
+          alert(`Sorry—generation failed.\n\n${detail}\n\nFull error in the browser console.`);
         } finally {
           btn.textContent = oldText;
           delete btn.dataset.busy;
@@ -4094,6 +4315,64 @@
     return store;
   }
 
+  // Restructure the #download-buttons host so the policy card is the primary
+  // download (the user-facing commitment artefact) and the Word/PDF IPS exports
+  // are presented as backup/raw-data formats.
+  function restructureDownloads(rootEl) {
+    if (!rootEl) return;
+    // Pull the existing buttons by data-dl-kind so we preserve their event listeners later.
+    const cardBtn = rootEl.querySelector('[data-dl-kind="policy-card"]');
+    const wordBtn = rootEl.querySelector('[data-dl-kind="word"]');
+    const pdfBtn = rootEl.querySelector('[data-dl-kind="pdf"]');
+    if (!cardBtn) return; // already restructured or unexpected markup — leave alone
+
+    // Clear existing children and rebuild.
+    rootEl.textContent = '';
+
+    // Primary section
+    const primary = document.createElement('div');
+    primary.className = 'ips-dl-primary-section';
+
+    const heading = document.createElement('h3');
+    heading.className = 'ips-dl-heading';
+    heading.textContent = 'Your policy card';
+    primary.appendChild(heading);
+
+    const lede = document.createElement('p');
+    lede.className = 'ips-dl-lede';
+    lede.textContent = 'A one-page first-person summary—the document you check before acting on a market move. The full IPS lives below as a Word or PDF export.';
+    primary.appendChild(lede);
+
+    cardBtn.classList.add('ips-dl-primary');
+    cardBtn.textContent = 'Download policy card (PDF)';
+    primary.appendChild(cardBtn);
+
+    rootEl.appendChild(primary);
+
+    // Secondary section
+    const secondary = document.createElement('div');
+    secondary.className = 'ips-dl-secondary-section';
+
+    const secLabel = document.createElement('p');
+    secLabel.className = 'ips-dl-secondary-label';
+    secLabel.textContent = 'Full IPS—for your records';
+    secondary.appendChild(secLabel);
+
+    const secRow = document.createElement('div');
+    secRow.className = 'ips-dl-secondary-row';
+    if (wordBtn) {
+      wordBtn.classList.add('ips-dl-secondary');
+      secRow.appendChild(wordBtn);
+    }
+    if (pdfBtn) {
+      pdfBtn.classList.add('ips-dl-secondary');
+      secRow.appendChild(pdfBtn);
+    }
+    secondary.appendChild(secRow);
+
+    rootEl.appendChild(secondary);
+  }
+
   function autoMount() {
     const formEl = document.getElementById('ips-form');
     if (!formEl) {
@@ -4106,14 +4385,17 @@
     formEl.classList.add('ips-form-host');
 
     const store = mountForm(formEl);
-    wireDownloadButtons(() => store.get());
 
-    // Same cleanup for the download buttons placeholder.
+    // Restructure the download host BEFORE wiring listeners — wiring queries
+    // by data-dl-kind, which restructure preserves.
     const dlEl = document.getElementById('download-buttons');
     if (dlEl) {
       dlEl.classList.remove('ips-embed-placeholder');
       dlEl.classList.add('ips-downloads-host');
+      restructureDownloads(dlEl);
     }
+
+    wireDownloadButtons(() => store.get());
 
     // The risk questionnaire is now an inline calibrator inside section 3.1's helper.
     // The standalone #risk-questionnaire placeholder on the page is no longer used —

@@ -241,7 +241,8 @@
 
   const CDN = {
     docx: 'https://unpkg.com/docx@8.5.0/build/index.umd.js',
-    html2pdf: 'https://unpkg.com/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js',
+    html2pdf: 'https://unpkg.com/html2pdf.js@0.10.3/dist/html2pdf.bundle.min.js',
+    jspdf: 'https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js',
     fileSaver: 'https://unpkg.com/file-saver@2.0.5/dist/FileSaver.min.js'
   };
 
@@ -255,6 +256,56 @@
     if (typeof window.html2pdf !== 'undefined') return window.html2pdf;
     await loadScript(CDN.html2pdf);
     return window.html2pdf;
+  }
+
+  async function ensureJsPDF() {
+    if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+    if (typeof window.jsPDF !== 'undefined') return window.jsPDF;
+    await loadScript(CDN.jspdf);
+    if (window.jspdf && window.jspdf.jsPDF) return window.jspdf.jsPDF;
+    if (typeof window.jsPDF !== 'undefined') return window.jsPDF;
+    throw new Error('jsPDF failed to load from CDN');
+  }
+
+  // ---------- pfolio branding ----------
+
+  const PFOLIO_LOGO_URL = 'https://cdn.prod.website-files.com/60681f344e5efd9d3d0c688e/606ac64809bea4f56f16ee6e_pfolio_logo.svg';
+  const PFOLIO_SITE_URL = 'https://pfolio.io';
+
+  // Rasterise the SVG logo to a PNG data URL and report its aspect ratio.
+  // Cached on first call so subsequent generations are instant.
+  let _logoPromise;
+  function loadPfolioLogo() {
+    if (_logoPromise) return _logoPromise;
+    _logoPromise = (async () => {
+      // Fetch the SVG as text so we can blob-render it (same-origin canvas).
+      const res = await fetch(PFOLIO_LOGO_URL, { mode: 'cors' });
+      if (!res.ok) throw new Error('logo fetch failed: ' + res.status);
+      const svgText = await res.text();
+      const blob = new Blob([svgText], { type: 'image/svg+xml' });
+      const blobUrl = URL.createObjectURL(blob);
+      try {
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = () => reject(new Error('logo image failed to decode'));
+          img.src = blobUrl;
+        });
+        // SVG without intrinsic dimensions falls back to a sensible default.
+        const w = img.naturalWidth || 480;
+        const h = img.naturalHeight || 160;
+        // Render at 4× for sharp print output.
+        const canvas = document.createElement('canvas');
+        canvas.width = w * 4;
+        canvas.height = h * 4;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        return { dataURL: canvas.toDataURL('image/png'), aspect: w / h };
+      } finally {
+        URL.revokeObjectURL(blobUrl);
+      }
+    })();
+    return _logoPromise;
   }
 
   // ---------- Export ----------
@@ -273,6 +324,9 @@
     fireDownloadComplete,
     ensureDocx,
     ensureHtml2Pdf,
+    ensureJsPDF,
+    loadPfolioLogo,
+    PFOLIO_SITE_URL,
     HORIZON_LABELS,
     OBJECTIVE_LABELS,
     RISK_LEVEL_LABELS,
