@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-04-30T07:33:07Z */
+/* pfolio IPS bundle — built 2026-04-30T07:46:40Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -3326,8 +3326,10 @@
 .ips-field__guidance { font-size: 12px; line-height: 1.55; color: #9AA0AB; margin: 4px 0 0; font-style: italic; }
 
 .ips-input, .ips-textarea, .ips-select { width: 100%; padding: 9px 12px; border: 1px solid #DEE2E6; border-radius: 6px; font: inherit; font-size: 14px; color: #1F2F36; background: #FFFFFF; transition: border-color 0.15s ease; }
+.ips-input { max-width: 480px; }
+.ips-select { max-width: 480px; }
 .ips-input:focus, .ips-textarea:focus, .ips-select:focus { outline: none; border-color: #00BFB2; box-shadow: 0 0 0 3px rgba(0,191,178,0.18); }
-.ips-textarea { resize: vertical; min-height: 60px; line-height: 1.55; font-family: inherit; }
+.ips-textarea { resize: vertical; min-height: 60px; max-width: 600px; line-height: 1.55; font-family: inherit; }
 
 .ips-input--number { width: 140px; min-width: 0; }
 .ips-input-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -3343,8 +3345,8 @@
 
 .ips-rich-radios { display: flex; flex-direction: column; gap: 8px; }
 .ips-rich-radio { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid #DEE2E6; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; align-items: flex-start; }
-.ips-rich-radio:hover { border-color: #00BFB2; }
-.ips-rich-radio.is-checked { border-color: #00BFB2; background: #FFFFFF; }
+.ips-rich-radio:hover { border-color: #1F2F36; }
+.ips-rich-radio.is-checked { border-color: #1F2F36; border-width: 2px; padding: 13px 15px; background: #FFFFFF; }
 .ips-rich-radio__input { margin-top: 3px; }
 .ips-rich-radio__body { display: flex; flex-direction: column; gap: 3px; }
 .ips-rich-radio__title { font-size: 14px; font-weight: 600; color: #1F2F36; }
@@ -3370,17 +3372,17 @@
 
 .ips-btn { font-family: inherit; font-size: 13px; padding: 7px 14px; border-radius: 6px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
 .ips-btn--ghost { background: transparent; color: #6B7280; border: 1px solid #DEE2E6; }
-.ips-btn--ghost:hover { border-color: #00BFB2; color: #00BFB2; }
+.ips-btn--ghost:hover { border-color: #1F2F36; color: #1F2F36; }
 .ips-btn--apply { background: #00BFB2; color: #FFFFFF; border: 1px solid #00BFB2; font-weight: 500; }
 .ips-btn--apply:hover { background: #009993; border-color: #009993; }
 .ips-btn--add { align-self: flex-start; margin-top: 4px; }
 
-.ips-advanced-toggle { background: transparent; color: #00BFB2; border: none; padding: 8px 0; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.ips-advanced-toggle { background: transparent; color: #1F2F36; border: none; padding: 8px 0; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .ips-advanced-toggle:hover { text-decoration: underline; }
 .ips-advanced-toggle.is-open { color: #1F2F36; }
 
 .ips-helper { margin: 8px 0 16px; padding: 14px 16px; background: #FFFFFF; border-left: 3px solid #00BFB2; border-radius: 0 6px 6px 0; }
-.ips-helper-toggle { background: transparent; color: #00BFB2; border: none; padding: 6px 0; font-family: inherit; font-size: 13px; cursor: pointer; }
+.ips-helper-toggle { background: transparent; color: #1F2F36; border: none; padding: 6px 0; font-family: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
 .ips-helper-toggle:hover { text-decoration: underline; }
 .ips-helper__intro { font-size: 13px; color: #6B7280; margin: 8px 0 12px; line-height: 1.55; }
 .ips-helper__preamble { font-size: 13px; color: #3A4255; margin: 8px 0 12px; line-height: 1.6; }
@@ -3437,15 +3439,15 @@
 .ips-q-label { display: block; font-size: 15px; font-weight: 500; color: #1F2F36; margin: 6px 0 14px; line-height: 1.5; }
 .ips-q-options { display: flex; flex-direction: column; gap: 8px; margin: 0 0 18px; }
 .ips-q-option { text-align: left; padding: 12px 14px; background: #FFFFFF; border: 1px solid #DEE2E6; border-radius: 8px; font: inherit; font-size: 14px; color: #1F2F36; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
-.ips-q-option:hover { border-color: #00BFB2; background: #FFFFFF; }
-.ips-q-option.is-selected { border-color: #00BFB2; background: #FFFFFF; font-weight: 500; }
+.ips-q-option:hover { border-color: #1F2F36; background: #FFFFFF; }
+.ips-q-option.is-selected { border-color: #1F2F36; border-width: 2px; padding: 11px 13px; background: #FFFFFF; font-weight: 500; }
 .ips-q-checks { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
 .ips-q-check { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: #FFFFFF; border: 1px solid #DEE2E6; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; font-size: 14px; }
 .ips-q-check input { margin-top: 3px; }
-.ips-q-check.is-selected { border-color: #00BFB2; background: #FFFFFF; }
+.ips-q-check.is-selected { border-color: #1F2F36; border-width: 2px; padding: 9px 13px; background: #FFFFFF; }
 .ips-q-hint { font-size: 12px; color: #9AA0AB; margin: 4px 0 14px; font-style: italic; }
 .ips-q-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 0; align-items: center; }
-.ips-q-link { background: transparent; color: #00BFB2; border: none; padding: 6px 0; font-family: inherit; font-size: 13px; cursor: pointer; }
+.ips-q-link { background: transparent; color: #1F2F36; border: none; padding: 6px 0; font-family: inherit; font-size: 13px; cursor: pointer; }
 .ips-q-link:hover { text-decoration: underline; }
 .ips-q-skip { font-size: 12px; color: #6B7280; }
 
@@ -3465,6 +3467,11 @@
 .ips-mkt-card__text { font-family: 'Source Serif Pro', Georgia, serif; font-size: 18px; line-height: 1.35; font-weight: 400; }
 .ips-mkt-card__text strong { font-weight: 700; }
 .ips-mkt-card__cta { font-family: Poppins, system-ui, sans-serif; font-size: 13px; color: #00BFB2; font-weight: 500; }
+
+/* Override phase-1 page-level warm off-white backgrounds with brand Pebble.
+   These selectors target the page-level wrapper sections on the IPS template page,
+   not the form-internal subsections. */
+.ips-hero, .ips-section, .ips-disclaimer-section { background: #E7E7E7; }
 
 @media (max-width: 640px) {
   .ips-section { padding: 24px 0; }
