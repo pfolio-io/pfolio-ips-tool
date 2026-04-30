@@ -67,8 +67,20 @@
       console.warn('[pfolioIPS] autoMount: #ips-form not found');
       return null;
     }
+    // Strip the page's "loading placeholder" styling (padding, white bg, dashed
+    // border, centre-align, grey text). The mounted form supplies its own.
+    formEl.classList.remove('ips-embed-placeholder');
+    formEl.classList.add('ips-form-host');
+
     const store = mountForm(formEl);
     wireDownloadButtons(() => store.get());
+
+    // Same cleanup for the download buttons placeholder.
+    const dlEl = document.getElementById('download-buttons');
+    if (dlEl) {
+      dlEl.classList.remove('ips-embed-placeholder');
+      dlEl.classList.add('ips-downloads-host');
+    }
 
     // The risk questionnaire is now an inline calibrator inside section 3.1's helper.
     // The standalone #risk-questionnaire placeholder on the page is no longer used —
