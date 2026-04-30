@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-04-30T13:39:17Z */
+/* pfolio IPS bundle — built 2026-04-30T18:22:55Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -3518,6 +3518,9 @@
 .ips-select { max-width: 480px; }
 .ips-input:focus, .ips-textarea:focus, .ips-select:focus { outline: none; border-color: #264653; box-shadow: 0 0 0 0.25rem rgba(38,70,83,0.25); }
 .ips-textarea { resize: vertical; min-height: 60px; max-width: 600px; line-height: 1.55; font-family: inherit; }
+/* iOS WebKit gives input[type=date] an intrinsic width that ignores max-width.
+   Reset appearance and min-width so it renders like the other text inputs. */
+.ips-input[type="date"] { -webkit-appearance: none; appearance: none; min-width: 0; }
 
 .ips-input--number { width: 140px; min-width: 0; }
 .ips-input-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
