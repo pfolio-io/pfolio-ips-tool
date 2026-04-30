@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-04-30T12:52:07Z */
+/* pfolio IPS bundle — built 2026-04-30T13:15:13Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -3673,23 +3673,25 @@
    not the form-internal subsections. */
 .ips-hero, .ips-section, .ips-disclaimer-section { background: #E7E7E7; }
 
-/* Download section — policy card is the primary artefact, Word/PDF are backups. */
+/* Download section — policy card is the primary artefact, Word/PDF are backups.
+   Selectors scoped to .ips-downloads-host so they outrank Webflow's .w-button
+   default button styling on the live page. */
 .ips-downloads-host { display: block; }
-.ips-dl-primary-section { background: #FFFFFF; border: 1px solid #00BFB2; border-radius: 12px; padding: 24px 28px; margin: 0 0 20px; }
-.ips-dl-heading { font-family: 'Source Serif Pro', Georgia, serif; font-size: 22px; font-weight: 700; color: #1F2F36; margin: 0 0 6px; line-height: 1.25; }
-.ips-dl-lede { font-family: Poppins, system-ui, sans-serif; font-size: 14px; line-height: 1.6; color: #3A4255; margin: 0 0 16px; max-width: 640px; }
+.ips-downloads-host .ips-dl-primary-section { background: #FFFFFF; border: 1px solid #00BFB2; border-radius: 12px; padding: 24px 28px; margin: 0 0 20px; }
+.ips-downloads-host .ips-dl-heading { font-family: 'Source Serif Pro', Georgia, serif; font-size: 22px; font-weight: 700; color: #1F2F36; margin: 0 0 6px; line-height: 1.25; }
+.ips-downloads-host .ips-dl-lede { font-family: Poppins, system-ui, sans-serif; font-size: 14px; line-height: 1.6; color: #3A4255; margin: 0 0 16px; max-width: 640px; }
 /* Match the .ips-btn--apply style used by the "Apply to risk level" button. */
-.ips-dl-primary { padding: 12px 22px; background: #264653; color: #FFFFFF; border: 1px solid #264653; border-radius: 6px; font-family: Poppins, system-ui, sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
-.ips-dl-primary:hover { background: #1B3640; border-color: #1B3640; }
-.ips-dl-primary:disabled { background: #264653; border-color: #264653; opacity: 0.5; cursor: not-allowed; }
+.ips-downloads-host .ips-dl-primary { display: inline-block; padding: 12px 22px; background: #264653; color: #FFFFFF; border: 1px solid #264653; border-radius: 6px; font-family: Poppins, system-ui, sans-serif; font-size: 15px; font-weight: 500; line-height: 1.4; text-decoration: none; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+.ips-downloads-host .ips-dl-primary:hover { background: #1B3640; border-color: #1B3640; color: #FFFFFF; }
+.ips-downloads-host .ips-dl-primary:disabled { background: #264653; border-color: #264653; opacity: 0.5; cursor: not-allowed; }
 
-.ips-dl-secondary-section { padding: 0 4px; }
-.ips-dl-secondary-label { font-family: Poppins, system-ui, sans-serif; font-size: 13px; font-weight: 500; color: #6B7280; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
-.ips-dl-secondary-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.ips-downloads-host .ips-dl-secondary-section { padding: 0 4px; }
+.ips-downloads-host .ips-dl-secondary-label { font-family: Poppins, system-ui, sans-serif; font-size: 13px; font-weight: 500; color: #6B7280; margin: 0 0 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+.ips-downloads-host .ips-dl-secondary-row { display: flex; gap: 10px; flex-wrap: wrap; }
 /* Match the .ips-btn--outline style used by the "use the calibrator" button. */
-.ips-dl-secondary { font-family: inherit; font-size: 13px; padding: 7px 14px; border-radius: 6px; cursor: pointer; background: transparent; color: #1F2F36; border: 1px solid #264653; font-weight: 500; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
-.ips-dl-secondary:hover { background: #264653; color: #FFFFFF; border-color: #264653; }
-.ips-dl-secondary:disabled { background: transparent; color: #1F2F36; border-color: #264653; opacity: 0.5; cursor: not-allowed; }
+.ips-downloads-host .ips-dl-secondary { display: inline-block; font-family: Poppins, system-ui, sans-serif; font-size: 13px; padding: 7px 14px; border-radius: 6px; line-height: 1.4; text-decoration: none; cursor: pointer; background: transparent; color: #1F2F36; border: 1px solid #264653; font-weight: 500; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+.ips-downloads-host .ips-dl-secondary:hover { background: #264653; color: #FFFFFF; border-color: #264653; }
+.ips-downloads-host .ips-dl-secondary:disabled { background: transparent; color: #1F2F36; border-color: #264653; opacity: 0.5; cursor: not-allowed; }
 
 @media (max-width: 640px) {
   .ips-section { padding: 24px 0; }
@@ -4320,11 +4322,26 @@
   // are presented as backup/raw-data formats.
   function restructureDownloads(rootEl) {
     if (!rootEl) return;
-    // Pull the existing buttons by data-dl-kind so we preserve their event listeners later.
-    const cardBtn = rootEl.querySelector('[data-dl-kind="policy-card"]');
-    const wordBtn = rootEl.querySelector('[data-dl-kind="word"]');
-    const pdfBtn = rootEl.querySelector('[data-dl-kind="pdf"]');
-    if (!cardBtn) return; // already restructured or unexpected markup — leave alone
+
+    // Identify buttons. Prefer data-dl-kind; otherwise infer from the label text.
+    // The live Webflow page uses <a class="dl-btn"> without data attributes, so
+    // we tag them with data-dl-kind here so wireDownloadButtons can find them later.
+    let cardBtn = rootEl.querySelector('[data-dl-kind="policy-card"]');
+    let wordBtn = rootEl.querySelector('[data-dl-kind="word"]');
+    let pdfBtn = rootEl.querySelector('[data-dl-kind="pdf"]');
+
+    if (!cardBtn || !wordBtn || !pdfBtn) {
+      const candidates = rootEl.querySelectorAll('button, a');
+      candidates.forEach((el) => {
+        if (el.dataset.dlKind) return;
+        const kind = inferKindFromLabel(el.textContent);
+        if (kind === 'policy-card' && !cardBtn) { el.dataset.dlKind = 'policy-card'; cardBtn = el; }
+        else if (kind === 'word' && !wordBtn) { el.dataset.dlKind = 'word'; wordBtn = el; }
+        else if (kind === 'pdf' && !pdfBtn) { el.dataset.dlKind = 'pdf'; pdfBtn = el; }
+      });
+    }
+
+    if (!cardBtn) return; // no card button found — leave alone
 
     // Clear existing children and rebuild.
     rootEl.textContent = '';

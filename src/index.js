@@ -67,11 +67,26 @@
   // are presented as backup/raw-data formats.
   function restructureDownloads(rootEl) {
     if (!rootEl) return;
-    // Pull the existing buttons by data-dl-kind so we preserve their event listeners later.
-    const cardBtn = rootEl.querySelector('[data-dl-kind="policy-card"]');
-    const wordBtn = rootEl.querySelector('[data-dl-kind="word"]');
-    const pdfBtn = rootEl.querySelector('[data-dl-kind="pdf"]');
-    if (!cardBtn) return; // already restructured or unexpected markup — leave alone
+
+    // Identify buttons. Prefer data-dl-kind; otherwise infer from the label text.
+    // The live Webflow page uses <a class="dl-btn"> without data attributes, so
+    // we tag them with data-dl-kind here so wireDownloadButtons can find them later.
+    let cardBtn = rootEl.querySelector('[data-dl-kind="policy-card"]');
+    let wordBtn = rootEl.querySelector('[data-dl-kind="word"]');
+    let pdfBtn = rootEl.querySelector('[data-dl-kind="pdf"]');
+
+    if (!cardBtn || !wordBtn || !pdfBtn) {
+      const candidates = rootEl.querySelectorAll('button, a');
+      candidates.forEach((el) => {
+        if (el.dataset.dlKind) return;
+        const kind = inferKindFromLabel(el.textContent);
+        if (kind === 'policy-card' && !cardBtn) { el.dataset.dlKind = 'policy-card'; cardBtn = el; }
+        else if (kind === 'word' && !wordBtn) { el.dataset.dlKind = 'word'; wordBtn = el; }
+        else if (kind === 'pdf' && !pdfBtn) { el.dataset.dlKind = 'pdf'; pdfBtn = el; }
+      });
+    }
+
+    if (!cardBtn) return; // no card button found — leave alone
 
     // Clear existing children and rebuild.
     rootEl.textContent = '';
