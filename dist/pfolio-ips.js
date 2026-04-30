@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-04-30T07:46:40Z */
+/* pfolio IPS bundle — built 2026-04-30T07:56:46Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -3305,11 +3305,11 @@
    sits edge-to-edge inside the host container. */
 .ips-form-host, .ips-downloads-host { background: transparent !important; padding: 0 !important; border: none !important; text-align: left !important; color: inherit !important; min-height: 0 !important; }
 
-.ips-form-root { font-family: Poppins, system-ui, sans-serif; color: #1F2F36; line-height: 1.55; accent-color: #00BFB2; background: transparent; padding: 0; margin: 0; }
+.ips-form-root { font-family: Poppins, system-ui, sans-serif; color: #1F2F36; line-height: 1.55; accent-color: #1F2F36; background: transparent; padding: 0; margin: 0; }
 .ips-form-root * { box-sizing: border-box; }
-.ips-form-root input[type="radio"], .ips-form-root input[type="checkbox"] { accent-color: #00BFB2; }
+.ips-form-root input[type="radio"], .ips-form-root input[type="checkbox"] { accent-color: #1F2F36; }
 
-.ips-section { padding: 32px 0; border-top: 1px solid #DEE2E6; }
+.ips-section { padding: 32px 0; border-top: 1px solid #264653; }
 .ips-section:first-child { border-top: none; padding-top: 0; }
 .ips-section__header { margin: 0 0 8px; }
 .ips-section__title { font-family: 'Source Serif Pro', Georgia, serif; font-weight: 700; font-size: 24px; line-height: 1.25; color: #1F2F36; margin: 0; letter-spacing: -0.005em; }
@@ -3325,7 +3325,7 @@
 .ips-field__sublabel { display: block; font-size: 13px; font-weight: 400; color: #6B7280; margin: 0 0 4px; }
 .ips-field__guidance { font-size: 12px; line-height: 1.55; color: #9AA0AB; margin: 4px 0 0; font-style: italic; }
 
-.ips-input, .ips-textarea, .ips-select { width: 100%; padding: 9px 12px; border: 1px solid #DEE2E6; border-radius: 6px; font: inherit; font-size: 14px; color: #1F2F36; background: #FFFFFF; transition: border-color 0.15s ease; }
+.ips-input, .ips-textarea, .ips-select { width: 100%; padding: 9px 12px; border: 1px solid #264653; border-radius: 6px; font: inherit; font-size: 14px; color: #1F2F36; background: #FFFFFF; transition: border-color 0.15s ease; }
 .ips-input { max-width: 480px; }
 .ips-select { max-width: 480px; }
 .ips-input:focus, .ips-textarea:focus, .ips-select:focus { outline: none; border-color: #00BFB2; box-shadow: 0 0 0 3px rgba(0,191,178,0.18); }
@@ -3344,7 +3344,7 @@
 .ips-radio__label { font-size: 14px; color: #1F2F36; line-height: 1.5; }
 
 .ips-rich-radios { display: flex; flex-direction: column; gap: 8px; }
-.ips-rich-radio { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid #DEE2E6; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; align-items: flex-start; }
+.ips-rich-radio { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid #264653; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; align-items: flex-start; }
 .ips-rich-radio:hover { border-color: #1F2F36; }
 .ips-rich-radio.is-checked { border-color: #1F2F36; border-width: 2px; padding: 13px 15px; background: #FFFFFF; }
 .ips-rich-radio__input { margin-top: 3px; }
@@ -3371,7 +3371,7 @@
 .ips-editable-row .ips-input { flex: 1; }
 
 .ips-btn { font-family: inherit; font-size: 13px; padding: 7px 14px; border-radius: 6px; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
-.ips-btn--ghost { background: transparent; color: #6B7280; border: 1px solid #DEE2E6; }
+.ips-btn--ghost { background: transparent; color: #6B7280; border: 1px solid #264653; }
 .ips-btn--ghost:hover { border-color: #1F2F36; color: #1F2F36; }
 .ips-btn--apply { background: #00BFB2; color: #FFFFFF; border: 1px solid #00BFB2; font-weight: 500; }
 .ips-btn--apply:hover { background: #009993; border-color: #009993; }
@@ -3401,10 +3401,10 @@
 .ips-suggestion { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 0; padding: 10px 14px; background: #FFFFFF; border-left: 3px solid #00BFB2; border-radius: 0 6px 6px 0; }
 .ips-suggestion__text { font-size: 13px; color: #1F2F36; line-height: 1.5; flex: 1; min-width: 240px; }
 
-.ips-drawdown { margin: 16px 0 0; padding: 16px; background: #FFFFFF; border: 1px solid #DEE2E6; border-radius: 8px; }
+.ips-drawdown { margin: 16px 0 0; padding: 16px; background: #FFFFFF; border: 1px solid #264653; border-radius: 8px; }
 .ips-drawdown__intro { font-size: 13px; color: #3A4255; margin: 0 0 10px; line-height: 1.55; }
 .ips-drawdown__list { list-style: none; padding: 0; margin: 0 0 14px; }
-.ips-drawdown__row { font-size: 13px; line-height: 1.55; color: #1F2F36; padding: 5px 0; border-bottom: 1px dashed #DEE2E6; font-variant-numeric: tabular-nums; }
+.ips-drawdown__row { font-size: 13px; line-height: 1.55; color: #1F2F36; padding: 5px 0; border-bottom: 1px dashed #264653; font-variant-numeric: tabular-nums; }
 .ips-drawdown__row:last-child { border-bottom: none; }
 .ips-drawdown__post { font-size: 13px; color: #3A4255; line-height: 1.6; margin: 14px 0; }
 .ips-drawdown__anchors-intro { font-size: 13px; color: #3A4255; margin: 14px 0 6px; }
@@ -3428,21 +3428,21 @@
 .ips-calibrator__h { font-family: 'Source Serif Pro', Georgia, serif; font-weight: 700; font-size: 15px; line-height: 1.3; margin: 6px 0 6px; color: #1F2F36; }
 .ips-calibrator--blocked { background: #FFFFFF; padding: 14px 16px; border-radius: 6px; }
 .ips-calibrator__blocker { font-size: 13px; color: #1F2F36; margin: 0 0 10px; line-height: 1.55; }
-.ips-helper__cta { margin: 16px 0 0; padding-top: 12px; border-top: 1px dashed #DEE2E6; display: flex; }
+.ips-helper__cta { margin: 16px 0 0; padding-top: 12px; border-top: 1px dashed #264653; display: flex; }
 
 /* Questionnaire widget (also reused by calibrator inline) */
-.ips-q-card { font-family: Poppins, system-ui, sans-serif; color: #1F2F36; line-height: 1.55; padding: 28px 32px; background: #FFFFFF; border: 1px solid #DEE2E6; border-radius: 12px; accent-color: #00BFB2; }
+.ips-q-card { font-family: Poppins, system-ui, sans-serif; color: #1F2F36; line-height: 1.55; padding: 28px 32px; background: #FFFFFF; border: 1px solid #264653; border-radius: 12px; accent-color: #1F2F36; }
 .ips-q-card * { box-sizing: border-box; }
 .ips-q-h { font-family: 'Source Serif Pro', Georgia, serif; font-weight: 700; font-size: 22px; line-height: 1.25; margin: 0 0 6px; color: #1F2F36; }
 .ips-q-lede { font-size: 14px; color: #3A4255; margin: 0 0 20px; line-height: 1.6; }
 .ips-q-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #6B7280; margin: 0 0 14px; }
 .ips-q-label { display: block; font-size: 15px; font-weight: 500; color: #1F2F36; margin: 6px 0 14px; line-height: 1.5; }
 .ips-q-options { display: flex; flex-direction: column; gap: 8px; margin: 0 0 18px; }
-.ips-q-option { text-align: left; padding: 12px 14px; background: #FFFFFF; border: 1px solid #DEE2E6; border-radius: 8px; font: inherit; font-size: 14px; color: #1F2F36; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.ips-q-option { text-align: left; padding: 12px 14px; background: #FFFFFF; border: 1px solid #264653; border-radius: 8px; font: inherit; font-size: 14px; color: #1F2F36; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
 .ips-q-option:hover { border-color: #1F2F36; background: #FFFFFF; }
 .ips-q-option.is-selected { border-color: #1F2F36; border-width: 2px; padding: 11px 13px; background: #FFFFFF; font-weight: 500; }
 .ips-q-checks { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; }
-.ips-q-check { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: #FFFFFF; border: 1px solid #DEE2E6; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; font-size: 14px; }
+.ips-q-check { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; background: #FFFFFF; border: 1px solid #264653; border-radius: 8px; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; font-size: 14px; }
 .ips-q-check input { margin-top: 3px; }
 .ips-q-check.is-selected { border-color: #1F2F36; border-width: 2px; padding: 9px 13px; background: #FFFFFF; }
 .ips-q-hint { font-size: 12px; color: #9AA0AB; margin: 4px 0 14px; font-style: italic; }
