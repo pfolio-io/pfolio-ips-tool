@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-04-30T18:22:55Z */
+/* pfolio IPS bundle — built 2026-04-30T18:55:31Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -3913,17 +3913,21 @@
       calc = calc - Math.min(Math.abs(calc - objective), 2);
     }
 
-    // Step 4: skills modulator
-    if (knowledge === 1 && experienceCount === 0) {
-      // Novice + no experience: floor at knowledge level (= 1).
-      // This means calc cannot go below 1 here, but is not reduced if already higher.
-      calc = Math.max(calc, knowledge);
-    } else {
-      // experience = min(((count + 2) / total) * 4, 4) — total = 8 products
-      const expScore = Math.min(((experienceCount + 2) / EXPERIENCE_PRODUCTS.length) * 4, 4);
-      const skills = (knowledge + expScore) / 2;
-      if (skills < calc) {
-        calc = calc - Math.min(Math.abs(calc - skills), 2);
+    // Step 4: skills modulator — skipped when capital preservation forced 0 in
+    // step 3, so the novice-floor branch can't quietly raise an explicit
+    // preservation choice back to level 1.
+    if (objective !== 0) {
+      if (knowledge === 1 && experienceCount === 0) {
+        // Novice + no experience: floor at knowledge level (= 1).
+        // calc cannot go below 1 here, but is not reduced if already higher.
+        calc = Math.max(calc, knowledge);
+      } else {
+        // experience = min(((count + 2) / total) * 4, 4) — total = 8 products
+        const expScore = Math.min(((experienceCount + 2) / EXPERIENCE_PRODUCTS.length) * 4, 4);
+        const skills = (knowledge + expScore) / 2;
+        if (skills < calc) {
+          calc = calc - Math.min(Math.abs(calc - skills), 2);
+        }
       }
     }
 
