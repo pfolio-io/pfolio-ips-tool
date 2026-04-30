@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-04-30T13:31:47Z */
+/* pfolio IPS bundle — built 2026-04-30T13:34:44Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -3682,7 +3682,7 @@
 .ips-downloads-host .ips-dl-lede { font-family: Poppins, system-ui, sans-serif; font-size: 14px; line-height: 1.6; color: #1F2F36 !important; margin: 0 0 16px; max-width: 640px; }
 /* Match the .ips-btn--apply style used by the "Apply to risk level" button. */
 .ips-downloads-host .ips-dl-primary { display: inline-block !important; padding: 12px 22px !important; background: #264653 !important; color: #FFFFFF !important; border: 1px solid #264653 !important; border-radius: 6px !important; font-family: Poppins, system-ui, sans-serif !important; font-size: 15px !important; font-weight: 500 !important; line-height: 1.4 !important; text-decoration: none !important; cursor: pointer !important; transition: background 0.15s ease, border-color 0.15s ease; }
-.ips-downloads-host .ips-dl-primary:hover { background: #1B3640 !important; border-color: #1B3640 !important; color: #FFFFFF !important; }
+.ips-downloads-host .ips-dl-primary:hover { background: #1B3640 !important; border-color: #1B3640 !important; color: #FFFFFF !important; opacity: 1 !important; filter: none !important; }
 .ips-downloads-host .ips-dl-primary:disabled { background: #264653 !important; border-color: #264653 !important; opacity: 0.5; cursor: not-allowed !important; }
 
 .ips-downloads-host .ips-dl-secondary-section { padding: 0 4px; }
@@ -3690,7 +3690,7 @@
 .ips-downloads-host .ips-dl-secondary-row { display: flex; gap: 10px; flex-wrap: wrap; }
 /* Match the .ips-btn--outline style used by the "use the calibrator" button. */
 .ips-downloads-host .ips-dl-secondary { display: inline-block !important; font-family: Poppins, system-ui, sans-serif !important; font-size: 13px !important; padding: 7px 14px !important; border-radius: 6px !important; line-height: 1.4 !important; text-decoration: none !important; cursor: pointer !important; background: transparent !important; color: #1F2F36 !important; border: 1px solid #264653 !important; font-weight: 500 !important; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
-.ips-downloads-host .ips-dl-secondary:hover { background: #264653 !important; color: #FFFFFF !important; border-color: #264653 !important; }
+.ips-downloads-host .ips-dl-secondary:hover { background: #264653 !important; color: #FFFFFF !important; border-color: #264653 !important; opacity: 1 !important; filter: none !important; }
 .ips-downloads-host .ips-dl-secondary:disabled { background: transparent !important; color: #1F2F36 !important; border-color: #264653 !important; opacity: 0.5; cursor: not-allowed !important; }
 
 @media (max-width: 640px) {
