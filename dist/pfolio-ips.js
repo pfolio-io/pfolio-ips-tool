@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-04-30T13:34:44Z */
+/* pfolio IPS bundle — built 2026-04-30T13:39:17Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -3698,6 +3698,10 @@
   .ips-section__title { font-size: 22px; }
   .ips-sub__title { font-size: 16px; }
   .ips-input--number { width: 100%; }
+  /* Keep [USD][input], [input][%], [USD][input][period] on one row on mobile —
+     the standalone width:100% above would force wrap otherwise. */
+  .ips-input-row { flex-wrap: nowrap; }
+  .ips-input-row .ips-input--number { width: auto; flex: 1; min-width: 0; }
   .ips-input--other { width: 100%; }
   .ips-q-card { padding: 20px 22px; }
   .ips-q-h { font-size: 19px; }
