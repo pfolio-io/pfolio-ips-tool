@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <title>Generators — empty + long-text edge cases</title>
+  <style>
+    body { font-family: ui-monospace, Menlo, monospace; max-width: 1200px; margin: 32px auto; padding: 0 24px; color: #1F2F36; line-height: 1.55; }
+    h1 { font-family: 'Source Serif Pro', Georgia, serif; font-size: 22px; }
+    .case { padding: 12px 16px; border-left: 3px solid #CED4DA; margin: 8px 0; background: #FAFBFC; }
+    .case.pass { border-left-color: #10B981; }
+    .case.fail { border-left-color: #EF4444; background: #FEF2F2; }
+    .name { font-weight: 600; margin-bottom: 4px; }
+    .detail { font-size: 12px; color: #6B7280; }
+    .detail strong { color: #1F2F36; }
+    .summary { margin-top: 16px; padding: 12px 16px; background: #F3F4F6; border-radius: 6px; font-weight: 600; }
+    .summary.allgreen { background: #D1FAE5; color: #065F46; }
+    .summary.anyred { background: #FEE2E2; color: #991B1B; }
+    iframe.preview { width: 100%; height: 480px; border: 1px solid #CED4DA; margin: 8px 0; }
+    .preview-toggle { font-size: 11px; padding: 3px 8px; background: #1F2F36; color: #fff; border: 0; border-radius: 4px; cursor: pointer; margin-top: 6px; }
+    pre { font-size: 11px; background: #FFF; padding: 8px 10px; border: 1px solid #E5E7EB; border-radius: 4px; overflow: auto; max-height: 200px; }
+  </style>
+</head>
+<body>
+  <h1>Generator edge cases — empty state + long-text overflow</h1>
+  <p>Loads the source files directly, monkey-patches save methods to capture jsPDF docs without triggering downloads, then runs each scenario through all three generators (policy card, IPS PDF, Word IPS). Reports page counts, byte sizes, and any errors.</p>
+  <p>Pass criteria: <strong>policy card always = 1 page</strong> · <strong>no thrown errors</strong> · <strong>Word + IPS PDF produce non-empty output</strong>.</p>
+
+  <div id="results"></div>
+  <div id="summary" class="summary">running…</div>
+
+  <!-- Cache-bust everything so we test the latest source on every load. -->
+  <script>
+    const VER = '?t=' + Date.now();
+    const FILES = ['utils.js', 'anna-bauer.js', 'word-ips.js', 'pdf-ips.js', 'pdf-policy-card.js', 'form-state.js'];
+    let idx = 0;
+    function loadNext() {
+      if (idx >= FILES.length) { runTests(); return; }
+      const s = document.createElement('script');
+      s.src = '../src/' + FILES[idx++] + VER;
+      s.onload = loadNext;
+      s.onerror = () => { document.getElementById('summary').textContent = 'Failed to load ' + s.src; };
+      document.head.appendChild(s);
+    }
+    window.addEventListener('DOMContentLoaded', loadNext);
+  </script>
+
+  <script>
+  async function runTests() {
+    const results = document.getElementById('results');
+    const summary = document.getElementById('summary');
+    const ips = window._pfolioIPS;
+    const utils = ips.utils;
+
+    // Capture jsPDF saves and Word doc saves instead of triggering real downloads.
+    const captured = { policyCard: null, ipsPdf: null, word: null };
+    const debug = [];
+
+    // Strategy 1: wrap ensureJsPDF so each new doc gets its save() instrumented at the instance level.
+    const realEnsure = utils.ensureJsPDF;
+    let RealJsPDF = null;
+    utils.ensureJsPDF = async function () {
+      if (!RealJsPDF) RealJsPDF = await realEnsure.call(utils);
+      // Return a thin wrapper-constructor that patches save on each instance.
+      function PatchedJsPDF(opts) {
+        const doc = new RealJsPDF(opts);
+        const origSave = doc.save && doc.save.bind(doc);
+        doc.save = function (filename) {
+          try {
+            const arr = doc.output('arraybuffer');
+            const dataUri = doc.output('datauristring');
+            const meta = {
+              filename,
+              pageCount: doc.internal.getNumberOfPages(),
+              bytes: arr.byteLength,
+              dataUri
+            };
+            debug.push(`save captured: ${filename} (${arr.byteLength} bytes, ${meta.pageCount} pages)`);
+            if (filename && filename.includes('policy-card')) captured.policyCard = meta;
+            else captured.ipsPdf = meta;
+          } catch (e) {
+            debug.push(`save capture FAILED for ${filename}: ${e.message}`);
+            throw e;
+          }
+        };
+        return doc;
+      }
+      PatchedJsPDF.prototype = RealJsPDF.prototype;
+      return PatchedJsPDF;
+    };
+    debug.push('ensureJsPDF wrapper installed');
+
+    // Override the Word doc download trigger.
+    const origTrigger = utils.triggerDownload;
+    utils.triggerDownload = function (blob, filename) {
+      blob.arrayBuffer().then((buf) => {
+        captured.word = { filename, bytes: buf.byteLength };
+      });
+    };
+    debug.push('triggerDownload override installed');
+
+    // Build scenarios.
+    const longText = 'Long-prose stress test. '.repeat(80); // ~2000 chars
+    const longParagraph = 'This is a deliberately verbose paragraph designed to test whether the generators handle long-form prose without truncation, layout breakage, or page overflow. '.repeat(15);
+
+    const scenarios = [
+      {
+        name: 'Empty — no fields filled at all',
+        data: {},
+        check: { policyCardPages: 1, anyErrors: false }
+      },
+      {
+        name: 'Empty + just a name + currency (typical first-second of use)',
+        data: { drafted_by: 'Test User', date_drafted: '2026-04-30', base_currency: 'EUR' },
+        check: { policyCardPages: 1, anyErrors: false }
+      },
+      {
+        name: 'Long intended_use (~2000 chars)',
+        data: {
+          drafted_by: 'Verbose Vince', date_drafted: '2026-04-30', base_currency: 'USD',
+          intended_use: longText
+        },
+        check: { policyCardPages: 1, anyErrors: false }
+      },
+      {
+        name: 'Long liquidity_reserve (~2000 chars)',
+        data: {
+          drafted_by: 'Wordy Wendy', date_drafted: '2026-04-30', base_currency: 'GBP',
+          liquidity_reserve: longText
+        },
+        check: { policyCardPages: 1, anyErrors: false }
+      },
+      {
+        name: 'Long risk_level_note + target_volatility_note (calibrator-prose stress)',
+        data: {
+          drafted_by: 'Cali Brate', date_drafted: '2026-04-30', base_currency: 'CHF',
+          risk_level: 'high', target_volatility: '10_15',
+          risk_level_note: longParagraph,
+          target_volatility_note: longParagraph
+        },
+        check: { policyCardPages: 1, anyErrors: false }
+      },
+      {
+        name: 'Every prose field maxed out (worst case)',
+        data: {
+          drafted_by: 'Maxed Mary', date_drafted: '2026-04-30', annual_review_date: '2027-04-30', base_currency: 'JPY',
+          horizon: '15_25y', objective: 'capital_growth',
+          intended_use: longText,
+          starting_capital: 100000,
+          ongoing_contributions: { amount: 1000, period: 'per_month' },
+          onboarding_approach: 'hybrid',
+          onboarding_specify: 'Deploy 30% immediately, remainder in 12 monthly tranches.',
+          risk_level: 'high', risk_level_note: longParagraph,
+          target_volatility: '10_15', target_volatility_note: longParagraph,
+          abandonment_amount: 30000, abandonment_pct: 30, abandonment_note: longParagraph,
+          asset_types: ['etfs', 'stocks', 'bonds'],
+          asset_classes: ['equities', 'fixed_income', 'commodities'],
+          geography: 'global',
+          esg_screening: { enabled: true, screen: 'broad ESG, exclude tobacco and controversial weapons' },
+          excluded_sectors: 'Tobacco, gambling, fossil fuels',
+          excluded_instruments: 'Inverse and leveraged ETFs',
+          management_style: 'systematic', management_style_note: longParagraph,
+          cadence: 'monthly',
+          tactical_overrides: 'Never. ' + longParagraph,
+          liquidity_reserve: longText,
+          tax_residence: 'Switzerland',
+          life_events: ['Marriage', 'Birth of a child', 'Inheritance', 'Country relocation', 'Career change'],
+          signature: 'Maxed Mary', signature_date: '2026-04-30'
+        },
+        check: { policyCardPages: 1, anyErrors: false }
+      }
+    ];
+
+    let pass = 0, fail = 0;
+    for (let i = 0; i < scenarios.length; i++) {
+      const sc = scenarios[i];
+      captured.policyCard = null;
+      captured.ipsPdf = null;
+      captured.word = null;
+
+      const errors = [];
+      const t0 = Date.now();
+      try { await ips.generatePolicyCardPDF(sc.data); } catch (e) { errors.push('policy card: ' + e.message); }
+      try { await ips.generateFullIPSPDF(sc.data); } catch (e) { errors.push('ips pdf: ' + e.message); }
+      try { await ips.generateFullIPSWord(sc.data); } catch (e) { errors.push('word: ' + e.message); }
+      // Word capture is async via blob.arrayBuffer; give it a tick.
+      await new Promise((r) => setTimeout(r, 50));
+      const elapsed = Date.now() - t0;
+
+      const cardPages = captured.policyCard ? captured.policyCard.pageCount : null;
+      const ipsPages = captured.ipsPdf ? captured.ipsPdf.pageCount : null;
+      const wordBytes = captured.word ? captured.word.bytes : null;
+
+      const cardOK = cardPages === sc.check.policyCardPages;
+      const noErrors = errors.length === 0;
+      const wordOK = wordBytes !== null && wordBytes > 1000; // sanity floor
+      const ipsOK = ipsPages !== null && ipsPages > 0;
+      const allOK = cardOK && noErrors && wordOK && ipsOK;
+      if (allOK) pass++; else fail++;
+
+      const div = document.createElement('div');
+      div.className = 'case ' + (allOK ? 'pass' : 'fail');
+      const detail = `<div class="detail">` +
+        `<strong>policy card:</strong> ${cardPages || 'fail'} page(s) (${captured.policyCard?.bytes || 0} bytes) · ` +
+        `<strong>IPS PDF:</strong> ${ipsPages || 'fail'} page(s) (${captured.ipsPdf?.bytes || 0} bytes) · ` +
+        `<strong>Word:</strong> ${wordBytes || 'fail'} bytes · ` +
+        `<strong>${elapsed}ms</strong>` +
+        (errors.length ? `<pre>${errors.join('\n')}</pre>` : '') +
+        `</div>`;
+      div.innerHTML = `<div class="name">${allOK ? '✓' : '✗'} ${sc.name}</div>` + detail;
+
+      // Add preview toggle for the policy card so visual overflow can be eyeballed.
+      if (captured.policyCard?.dataUri) {
+        const btn = document.createElement('button');
+        btn.className = 'preview-toggle';
+        btn.textContent = 'Show policy card preview';
+        const dataUri = captured.policyCard.dataUri;
+        btn.onclick = () => {
+          if (btn.dataset.shown === '1') {
+            const iframe = div.querySelector('iframe.preview');
+            if (iframe) iframe.remove();
+            btn.textContent = 'Show policy card preview';
+            btn.dataset.shown = '0';
+          } else {
+            const iframe = document.createElement('iframe');
+            iframe.className = 'preview';
+            iframe.src = dataUri;
+            div.appendChild(iframe);
+            btn.textContent = 'Hide policy card preview';
+            btn.dataset.shown = '1';
+          }
+        };
+        div.appendChild(btn);
+      }
+      results.appendChild(div);
+    }
+
+    summary.textContent = `${pass} pass · ${fail} fail · ${scenarios.length} scenarios`;
+    summary.classList.add(fail === 0 ? 'allgreen' : 'anyred');
+
+    // Always show the debug log at the bottom so we can see what happened.
+    const debugBox = document.createElement('div');
+    debugBox.style.cssText = 'margin-top:24px;padding:12px;background:#1F2F36;color:#D1FAE5;border-radius:6px;font-size:11px;white-space:pre-wrap;';
+    debugBox.textContent = '[debug log]\n' + debug.join('\n');
+    document.body.appendChild(debugBox);
+
+    // Restore originals (cosmetic — tab is going to close anyway).
+    utils.ensureJsPDF = realEnsure;
+    utils.triggerDownload = origTrigger;
+  }
+  </script>
+</body>
+</html>

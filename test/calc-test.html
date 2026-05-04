@@ -23,7 +23,8 @@
   <div id="results"></div>
   <div id="summary" class="summary"></div>
 
-  <script src="../src/questionnaire-calc.js"></script>
+  <!-- Cache-bust on every load so the test always runs the latest source. -->
+  <script>document.write('<scr' + 'ipt src="../src/questionnaire-calc.js?t=' + Date.now() + '"><\/scr' + 'ipt>');</script>
   <script>
     const calc = window._pfolioIPS.questionnaireCalc;
     const { calculateLevel } = calc;

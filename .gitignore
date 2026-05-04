@@ -2,3 +2,7 @@ node_modules/
 dist/*.js.map
 .DS_Store
 *.log
+
+# Local debug page used during the empty-PDF investigation, kept out of the
+# public repo intentionally.
+test/pdf-only.html
