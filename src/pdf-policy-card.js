@@ -55,7 +55,9 @@
 
     const name = data.drafted_by || '';
     const draftedDate = u.formatDate(data.date_drafted);
-    const reviewDate = u.formatDate(data.annual_review_date) || data.annual_review_date || '';
+    // annual_review_date is a partial date ("12 March" — no year), so use the raw
+    // string. formatDate() would mis-parse it via JS's Date fallback (year 2001).
+    const reviewDate = data.annual_review_date || '';
 
     // Purpose — verbatim intended_use, or fallback
     const purpose = u.isEmpty(data.intended_use)
