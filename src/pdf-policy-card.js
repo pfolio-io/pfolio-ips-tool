@@ -114,10 +114,14 @@
       if (!u.isEmpty(data.abandonment_amount)) parts.push(u.formatMoney(data.abandonment_amount, currency));
       if (!u.isEmpty(data.abandonment_pct)) parts.push(data.abandonment_pct + '%');
       abandonmentPara = 'My abandonment threshold is ' + parts.join(' or ') + '.';
+      if (!u.isEmpty(data.abandonment_note)) abandonmentPara += ' ' + data.abandonment_note;
+    } else if (!u.isEmpty(data.abandonment_note)) {
+      // User wrote a free-form note explaining their thinking — use it verbatim,
+      // skip the boilerplate so the two don't say the same thing twice.
+      abandonmentPara = data.abandonment_note;
     } else {
       abandonmentPara = 'My abandonment threshold is to be set at next review.';
     }
-    if (!u.isEmpty(data.abandonment_note)) abandonmentPara += ' ' + data.abandonment_note;
 
     // Universe
     const types = data.asset_types && data.asset_types.length
