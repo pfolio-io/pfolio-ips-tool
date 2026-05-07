@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-05-07T11:32:48Z */
+/* pfolio IPS bundle — built 2026-05-07T11:44:27Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -1855,7 +1855,7 @@
       // Any divergence from defaults (other than date_drafted, which is auto-set today) counts.
       const checks = [
         'drafted_by', 'horizon', 'objective', 'intended_use',
-        'starting_capital', 'risk_level', 'target_volatility',
+        'starting_capital', 'current_portfolio_value', 'risk_level', 'target_volatility',
         'liquidity_reserve', 'annual_review_date'
       ];
       return checks.some((k) => JSON.stringify(state[k]) !== JSON.stringify(def[k]));
