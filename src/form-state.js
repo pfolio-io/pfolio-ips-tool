@@ -44,7 +44,9 @@
       intended_use: '',
 
       // section 2.4
+      funding_status: 'not_funded',
       starting_capital: null,
+      current_portfolio_value: null,
       ongoing_contributions: { amount: null, period: null },
       onboarding_approach: null,
       onboarding_specify: '',

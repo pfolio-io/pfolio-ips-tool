@@ -68,9 +68,14 @@
     const horizonLabel = u.labelFor(u.HORIZON_LABELS, data.horizon);
     const horizonPhrase = horizonLabel ? lowerFirst(horizonLabel) : 'an unspecified horizon';
 
-    const startingCapital = u.isEmpty(data.starting_capital)
+    const alreadyFunded = data.funding_status === 'already_funded';
+    const capitalSource = alreadyFunded ? data.current_portfolio_value : data.starting_capital;
+    const capitalAmount = u.isEmpty(capitalSource)
       ? 'an unspecified amount'
-      : u.formatMoney(data.starting_capital, currency);
+      : u.formatMoney(capitalSource, currency);
+    const capitalLead = alreadyFunded
+      ? ', with a current portfolio value of ' + capitalAmount
+      : ', starting with ' + capitalAmount;
 
     let contribPhrase = '';
     if (data.ongoing_contributions) {
@@ -83,7 +88,7 @@
     }
 
     let onboardingSentence = '';
-    if (data.onboarding_approach) {
+    if (!alreadyFunded && data.onboarding_approach) {
       const phrase = ONBOARDING_PHRASES[data.onboarding_approach] || '';
       if (phrase) {
         onboardingSentence = ' The starting capital is deployed ' + phrase + '.';
@@ -92,7 +97,7 @@
     }
 
     const horizonAndCapital = 'I am investing over ' + horizonPhrase
-      + ', starting with ' + startingCapital + contribPhrase + '.'
+      + capitalLead + contribPhrase + '.'
       + onboardingSentence;
 
     // Risk — three paragraphs

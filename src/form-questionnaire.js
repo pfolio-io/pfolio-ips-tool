@@ -229,7 +229,7 @@
     return E('div', { class: 'ips-calibrator ips-q-result' + (result.level === 0 ? ' ips-q-result--zero' : '') }, [
       E('h4', { class: 'ips-q-result-h' }, result.title),
       ...result.paragraphs.map((p) => E('p', { class: 'ips-q-result-p' }, p)),
-      renderDrawdownGrounding(result.volBand, store.get().starting_capital, store.get().base_currency || 'USD'),
+      renderDrawdownGrounding(result.volBand, (store.get().funding_status === 'already_funded' ? store.get().current_portfolio_value : store.get().starting_capital), store.get().base_currency || 'USD'),
       mktCard,
       E('div', { class: 'ips-q-actions' }, [
         E('button', { type: 'button', class: 'ips-btn ips-btn--apply', onClick: applyToIps }, 'Apply to risk level →'),

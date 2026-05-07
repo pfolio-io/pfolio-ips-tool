@@ -173,7 +173,9 @@
       const has21 = !!horizon;
       const has22 = objective || moneyOrNull(data.target_value) || val(data.secondary_objectives);
       const has23 = val(data.intended_use);
+      const alreadyFunded = data.funding_status === 'already_funded';
       const has24 = moneyOrNull(data.starting_capital)
+        || moneyOrNull(data.current_portfolio_value)
         || (data.ongoing_contributions && (data.ongoing_contributions.period === 'none' || data.ongoing_contributions.amount))
         || onboarding || val(data.onboarding_specify) || val(data.withdrawal_approach);
 
@@ -189,7 +191,11 @@
         if (has23) { H3('2.3 Intended use'); P(data.intended_use); }
         if (has24) {
           H3('2.4 Funding the portfolio');
-          if (moneyOrNull(data.starting_capital)) FIELD('Starting capital', u.formatMoney(data.starting_capital, currency));
+          if (alreadyFunded) {
+            if (moneyOrNull(data.current_portfolio_value)) FIELD('Current portfolio value', u.formatMoney(data.current_portfolio_value, currency));
+          } else {
+            if (moneyOrNull(data.starting_capital)) FIELD('Starting capital', u.formatMoney(data.starting_capital, currency));
+          }
           if (data.ongoing_contributions) {
             const oc = data.ongoing_contributions;
             if (oc.period === 'none') FIELD('Planned ongoing contributions', 'None');
@@ -198,8 +204,10 @@
               FIELD('Planned ongoing contributions', u.formatMoney(oc.amount, currency) + (periodLabel ? ' ' + periodLabel : ''));
             }
           }
-          if (onboarding) FIELD('Onboarding approach', onboarding);
-          if (val(data.onboarding_specify)) P(data.onboarding_specify);
+          if (!alreadyFunded) {
+            if (onboarding) FIELD('Onboarding approach', onboarding);
+            if (val(data.onboarding_specify)) P(data.onboarding_specify);
+          }
           if (val(data.withdrawal_approach)) FIELD('Withdrawal approach', data.withdrawal_approach);
         }
       }

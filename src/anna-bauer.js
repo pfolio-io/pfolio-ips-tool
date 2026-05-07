@@ -35,7 +35,9 @@
       'General long-term wealth building. The portfolio is intended to give me options in my mid-fifties—earlier retirement, reduced working hours, a sabbatical, or simply more financial flexibility. I am 32 and unmarried with no children, so the eventual use of this money will depend on choices I have not yet made. The framework is designed to flex as those choices come into view.',
 
     // section 2.4 — Funding the portfolio
+    funding_status: 'not_funded',
     starting_capital: 45000,
+    current_portfolio_value: null,
     ongoing_contributions: { amount: 1500, period: 'per_month' },
     onboarding_approach: 'hybrid',
     onboarding_specify:

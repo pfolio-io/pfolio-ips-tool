@@ -149,13 +149,25 @@
             number: '2.4',
             title: 'Funding the portfolio',
             fields: [
-              { id: 'starting_capital', label: 'Starting capital', type: 'money', tier: 'core' },
+              {
+                id: 'funding_status',
+                label: 'Is the portfolio already funded?',
+                type: 'single_select_richlabel',
+                tier: 'core',
+                options: [
+                  { value: 'not_funded', label: 'Not yet funded', description: 'No capital has been deployed. This IPS will guide the initial onboarding.' },
+                  { value: 'already_funded', label: 'Already funded', description: 'Capital is already invested. This IPS formalises the policy for an existing portfolio.' }
+                ]
+              },
+              { id: 'starting_capital', label: 'Starting capital', type: 'money', tier: 'core', show_if: { field: 'funding_status', op: '==', value: 'not_funded' } },
+              { id: 'current_portfolio_value', label: 'Current portfolio value', type: 'money', tier: 'core', show_if: { field: 'funding_status', op: '==', value: 'already_funded' } },
               { id: 'ongoing_contributions', label: 'Planned ongoing contributions', type: 'money_with_period', tier: 'core', periods: ['per_month', 'per_year', 'none'] },
               {
                 id: 'onboarding_approach',
                 label: 'Onboarding approach for starting capital',
                 type: 'single_select_richlabel',
                 tier: 'core',
+                show_if: { field: 'funding_status', op: '==', value: 'not_funded' },
                 options: [
                   { value: 'lump_sum', label: 'Lump sum', description: 'Invest the full starting amount immediately at the target allocation. Maximises time in market; accepts the timing risk of the entry point.' },
                   { value: 'phased', label: 'Phased entry', description: 'Deploy the starting capital in equal tranches over a defined period (typically 6 to 12 months). Reduces the impact of a poorly timed entry; accepts the cost of cash drag during the deployment window.' },
@@ -167,7 +179,10 @@
                 label: 'If phased or hybrid, specify',
                 type: 'text',
                 tier: 'core',
-                show_if: { field: 'onboarding_approach', op: 'in', values: ['phased', 'hybrid'] },
+                show_if: { all: [
+                  { field: 'funding_status', op: '==', value: 'not_funded' },
+                  { field: 'onboarding_approach', op: 'in', values: ['phased', 'hybrid'] }
+                ] },
                 placeholder: 'E.g. "12 monthly tranches"; "50% immediately, remainder in 6 monthly tranches".'
               },
               { id: 'withdrawal_approach', label: 'Withdrawal approach', type: 'textarea', tier: 'advanced', rows: 2, placeholder: 'How and when you plan to draw on this portfolio.' }

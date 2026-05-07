@@ -1,4 +1,4 @@
-/* pfolio IPS bundle — built 2026-05-04T12:25:04Z */
+/* pfolio IPS bundle — built 2026-05-07T11:32:48Z */
 
 /**
  * Shared utilities for the IPS document generators.
@@ -384,7 +384,9 @@
       'General long-term wealth building. The portfolio is intended to give me options in my mid-fifties—earlier retirement, reduced working hours, a sabbatical, or simply more financial flexibility. I am 32 and unmarried with no children, so the eventual use of this money will depend on choices I have not yet made. The framework is designed to flex as those choices come into view.',
 
     // section 2.4 — Funding the portfolio
+    funding_status: 'not_funded',
     starting_capital: 45000,
+    current_portfolio_value: null,
     ongoing_contributions: { amount: 1500, period: 'per_month' },
     onboarding_approach: 'hybrid',
     onboarding_specify:
@@ -622,7 +624,12 @@
       if (val(data.intended_use)) sub23Block.push(p(data.intended_use));
 
       const sub24Block = [];
-      if (moneyOrNull(data.starting_capital)) sub24Block.push(fieldLine('Starting capital', u.formatMoney(data.starting_capital, currency)));
+      const alreadyFunded = data.funding_status === 'already_funded';
+      if (alreadyFunded) {
+        if (moneyOrNull(data.current_portfolio_value)) sub24Block.push(fieldLine('Current portfolio value', u.formatMoney(data.current_portfolio_value, currency)));
+      } else {
+        if (moneyOrNull(data.starting_capital)) sub24Block.push(fieldLine('Starting capital', u.formatMoney(data.starting_capital, currency)));
+      }
       if (data.ongoing_contributions && (data.ongoing_contributions.amount || data.ongoing_contributions.period)) {
         const oc = data.ongoing_contributions;
         if (oc.period === 'none' || (!oc.amount && !oc.period)) {
@@ -632,8 +639,10 @@
           sub24Block.push(fieldLine('Planned ongoing contributions', `${u.formatMoney(oc.amount, currency)}${periodLabel ? ' ' + periodLabel : ''}`));
         }
       }
-      if (onboarding) sub24Block.push(fieldLine('Onboarding approach', onboarding));
-      if (val(data.onboarding_specify)) sub24Block.push(p(data.onboarding_specify));
+      if (!alreadyFunded) {
+        if (onboarding) sub24Block.push(fieldLine('Onboarding approach', onboarding));
+        if (val(data.onboarding_specify)) sub24Block.push(p(data.onboarding_specify));
+      }
       if (val(data.withdrawal_approach)) sub24Block.push(fieldLine('Withdrawal approach', data.withdrawal_approach));
 
       if (sub21.length || sub22Block.length || sub23Block.length || sub24Block.length) {
@@ -1058,7 +1067,9 @@
       const has21 = !!horizon;
       const has22 = objective || moneyOrNull(data.target_value) || val(data.secondary_objectives);
       const has23 = val(data.intended_use);
+      const alreadyFunded = data.funding_status === 'already_funded';
       const has24 = moneyOrNull(data.starting_capital)
+        || moneyOrNull(data.current_portfolio_value)
         || (data.ongoing_contributions && (data.ongoing_contributions.period === 'none' || data.ongoing_contributions.amount))
         || onboarding || val(data.onboarding_specify) || val(data.withdrawal_approach);
 
@@ -1074,7 +1085,11 @@
         if (has23) { H3('2.3 Intended use'); P(data.intended_use); }
         if (has24) {
           H3('2.4 Funding the portfolio');
-          if (moneyOrNull(data.starting_capital)) FIELD('Starting capital', u.formatMoney(data.starting_capital, currency));
+          if (alreadyFunded) {
+            if (moneyOrNull(data.current_portfolio_value)) FIELD('Current portfolio value', u.formatMoney(data.current_portfolio_value, currency));
+          } else {
+            if (moneyOrNull(data.starting_capital)) FIELD('Starting capital', u.formatMoney(data.starting_capital, currency));
+          }
           if (data.ongoing_contributions) {
             const oc = data.ongoing_contributions;
             if (oc.period === 'none') FIELD('Planned ongoing contributions', 'None');
@@ -1083,8 +1098,10 @@
               FIELD('Planned ongoing contributions', u.formatMoney(oc.amount, currency) + (periodLabel ? ' ' + periodLabel : ''));
             }
           }
-          if (onboarding) FIELD('Onboarding approach', onboarding);
-          if (val(data.onboarding_specify)) P(data.onboarding_specify);
+          if (!alreadyFunded) {
+            if (onboarding) FIELD('Onboarding approach', onboarding);
+            if (val(data.onboarding_specify)) P(data.onboarding_specify);
+          }
           if (val(data.withdrawal_approach)) FIELD('Withdrawal approach', data.withdrawal_approach);
         }
       }
@@ -1309,9 +1326,14 @@
     const horizonLabel = u.labelFor(u.HORIZON_LABELS, data.horizon);
     const horizonPhrase = horizonLabel ? lowerFirst(horizonLabel) : 'an unspecified horizon';
 
-    const startingCapital = u.isEmpty(data.starting_capital)
+    const alreadyFunded = data.funding_status === 'already_funded';
+    const capitalSource = alreadyFunded ? data.current_portfolio_value : data.starting_capital;
+    const capitalAmount = u.isEmpty(capitalSource)
       ? 'an unspecified amount'
-      : u.formatMoney(data.starting_capital, currency);
+      : u.formatMoney(capitalSource, currency);
+    const capitalLead = alreadyFunded
+      ? ', with a current portfolio value of ' + capitalAmount
+      : ', starting with ' + capitalAmount;
 
     let contribPhrase = '';
     if (data.ongoing_contributions) {
@@ -1324,7 +1346,7 @@
     }
 
     let onboardingSentence = '';
-    if (data.onboarding_approach) {
+    if (!alreadyFunded && data.onboarding_approach) {
       const phrase = ONBOARDING_PHRASES[data.onboarding_approach] || '';
       if (phrase) {
         onboardingSentence = ' The starting capital is deployed ' + phrase + '.';
@@ -1333,7 +1355,7 @@
     }
 
     const horizonAndCapital = 'I am investing over ' + horizonPhrase
-      + ', starting with ' + startingCapital + contribPhrase + '.'
+      + capitalLead + contribPhrase + '.'
       + onboardingSentence;
 
     // Risk — three paragraphs
@@ -1564,7 +1586,9 @@
       intended_use: '',
 
       // section 2.4
+      funding_status: 'not_funded',
       starting_capital: null,
+      current_portfolio_value: null,
       ongoing_contributions: { amount: null, period: null },
       onboarding_approach: null,
       onboarding_specify: '',
@@ -2516,7 +2540,9 @@
   }
 
   function renderDrawdownTable(state, store) {
-    const cap = state.starting_capital;
+    const cap = state.funding_status === 'already_funded'
+      ? state.current_portfolio_value
+      : state.starting_capital;
     const currency = state.base_currency || 'USD';
     const hasCapital = cap !== null && cap !== undefined && cap > 0;
 
@@ -2806,13 +2832,25 @@
             number: '2.4',
             title: 'Funding the portfolio',
             fields: [
-              { id: 'starting_capital', label: 'Starting capital', type: 'money', tier: 'core' },
+              {
+                id: 'funding_status',
+                label: 'Is the portfolio already funded?',
+                type: 'single_select_richlabel',
+                tier: 'core',
+                options: [
+                  { value: 'not_funded', label: 'Not yet funded', description: 'No capital has been deployed. This IPS will guide the initial onboarding.' },
+                  { value: 'already_funded', label: 'Already funded', description: 'Capital is already invested. This IPS formalises the policy for an existing portfolio.' }
+                ]
+              },
+              { id: 'starting_capital', label: 'Starting capital', type: 'money', tier: 'core', show_if: { field: 'funding_status', op: '==', value: 'not_funded' } },
+              { id: 'current_portfolio_value', label: 'Current portfolio value', type: 'money', tier: 'core', show_if: { field: 'funding_status', op: '==', value: 'already_funded' } },
               { id: 'ongoing_contributions', label: 'Planned ongoing contributions', type: 'money_with_period', tier: 'core', periods: ['per_month', 'per_year', 'none'] },
               {
                 id: 'onboarding_approach',
                 label: 'Onboarding approach for starting capital',
                 type: 'single_select_richlabel',
                 tier: 'core',
+                show_if: { field: 'funding_status', op: '==', value: 'not_funded' },
                 options: [
                   { value: 'lump_sum', label: 'Lump sum', description: 'Invest the full starting amount immediately at the target allocation. Maximises time in market; accepts the timing risk of the entry point.' },
                   { value: 'phased', label: 'Phased entry', description: 'Deploy the starting capital in equal tranches over a defined period (typically 6 to 12 months). Reduces the impact of a poorly timed entry; accepts the cost of cash drag during the deployment window.' },
@@ -2824,7 +2862,10 @@
                 label: 'If phased or hybrid, specify',
                 type: 'text',
                 tier: 'core',
-                show_if: { field: 'onboarding_approach', op: 'in', values: ['phased', 'hybrid'] },
+                show_if: { all: [
+                  { field: 'funding_status', op: '==', value: 'not_funded' },
+                  { field: 'onboarding_approach', op: 'in', values: ['phased', 'hybrid'] }
+                ] },
                 placeholder: 'E.g. "12 monthly tranches"; "50% immediately, remainder in 6 monthly tranches".'
               },
               { id: 'withdrawal_approach', label: 'Withdrawal approach', type: 'textarea', tier: 'advanced', rows: 2, placeholder: 'How and when you plan to draw on this portfolio.' }
@@ -3224,6 +3265,8 @@
 
   function evaluateShowIf(rule, state) {
     if (!rule) return true;
+    if (Array.isArray(rule.all)) return rule.all.every((r) => evaluateShowIf(r, state));
+    if (Array.isArray(rule.any)) return rule.any.some((r) => evaluateShowIf(r, state));
     const v = state[rule.field];
     if (rule.op === '==') return v === rule.value;
     if (rule.op === '!=') return v !== rule.value;
@@ -4211,7 +4254,7 @@
     return E('div', { class: 'ips-calibrator ips-q-result' + (result.level === 0 ? ' ips-q-result--zero' : '') }, [
       E('h4', { class: 'ips-q-result-h' }, result.title),
       ...result.paragraphs.map((p) => E('p', { class: 'ips-q-result-p' }, p)),
-      renderDrawdownGrounding(result.volBand, store.get().starting_capital, store.get().base_currency || 'USD'),
+      renderDrawdownGrounding(result.volBand, (store.get().funding_status === 'already_funded' ? store.get().current_portfolio_value : store.get().starting_capital), store.get().base_currency || 'USD'),
       mktCard,
       E('div', { class: 'ips-q-actions' }, [
         E('button', { type: 'button', class: 'ips-btn ips-btn--apply', onClick: applyToIps }, 'Apply to risk level →'),

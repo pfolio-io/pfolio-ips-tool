@@ -135,7 +135,12 @@
       if (val(data.intended_use)) sub23Block.push(p(data.intended_use));
 
       const sub24Block = [];
-      if (moneyOrNull(data.starting_capital)) sub24Block.push(fieldLine('Starting capital', u.formatMoney(data.starting_capital, currency)));
+      const alreadyFunded = data.funding_status === 'already_funded';
+      if (alreadyFunded) {
+        if (moneyOrNull(data.current_portfolio_value)) sub24Block.push(fieldLine('Current portfolio value', u.formatMoney(data.current_portfolio_value, currency)));
+      } else {
+        if (moneyOrNull(data.starting_capital)) sub24Block.push(fieldLine('Starting capital', u.formatMoney(data.starting_capital, currency)));
+      }
       if (data.ongoing_contributions && (data.ongoing_contributions.amount || data.ongoing_contributions.period)) {
         const oc = data.ongoing_contributions;
         if (oc.period === 'none' || (!oc.amount && !oc.period)) {
@@ -145,8 +150,10 @@
           sub24Block.push(fieldLine('Planned ongoing contributions', `${u.formatMoney(oc.amount, currency)}${periodLabel ? ' ' + periodLabel : ''}`));
         }
       }
-      if (onboarding) sub24Block.push(fieldLine('Onboarding approach', onboarding));
-      if (val(data.onboarding_specify)) sub24Block.push(p(data.onboarding_specify));
+      if (!alreadyFunded) {
+        if (onboarding) sub24Block.push(fieldLine('Onboarding approach', onboarding));
+        if (val(data.onboarding_specify)) sub24Block.push(p(data.onboarding_specify));
+      }
       if (val(data.withdrawal_approach)) sub24Block.push(fieldLine('Withdrawal approach', data.withdrawal_approach));
 
       if (sub21.length || sub22Block.length || sub23Block.length || sub24Block.length) {

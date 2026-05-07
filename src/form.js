@@ -14,6 +14,8 @@
 
   function evaluateShowIf(rule, state) {
     if (!rule) return true;
+    if (Array.isArray(rule.all)) return rule.all.every((r) => evaluateShowIf(r, state));
+    if (Array.isArray(rule.any)) return rule.any.some((r) => evaluateShowIf(r, state));
     const v = state[rule.field];
     if (rule.op === '==') return v === rule.value;
     if (rule.op === '!=') return v !== rule.value;

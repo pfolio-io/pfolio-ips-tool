@@ -114,7 +114,9 @@
   }
 
   function renderDrawdownTable(state, store) {
-    const cap = state.starting_capital;
+    const cap = state.funding_status === 'already_funded'
+      ? state.current_portfolio_value
+      : state.starting_capital;
     const currency = state.base_currency || 'USD';
     const hasCapital = cap !== null && cap !== undefined && cap > 0;
 
